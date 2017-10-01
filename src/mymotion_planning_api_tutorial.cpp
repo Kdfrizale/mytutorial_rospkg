@@ -129,10 +129,15 @@ int main(int argc, char** argv)
   planning_interface::MotionPlanResponse res;
   geometry_msgs::PoseStamped pose;
   pose.header.frame_id = "m1n6a200_link_base";
+  pose.pose.position.x = 0.0374196;
+  pose.pose.position.y = -0.12015;
+  pose.pose.position.z = 0.733757;
+  pose.pose.orientation.w = 1.0;
+  /*
   pose.pose.position.x = 0.265973;
   pose.pose.position.y = 0.101761;
   pose.pose.position.z = 0.554664;
-  pose.pose.orientation.w = 1.0;
+  pose.pose.orientation.w = 1.0; */
 
   // A tolerance of 0.01 m is specified in position
   // and 0.01 radians in orientation
@@ -147,7 +152,7 @@ int main(int argc, char** argv)
   // .. _kinematic_constraints: http://docs.ros.org/indigo/api/moveit_core/html/namespacekinematic__constraints.html#a88becba14be9ced36fefc7980271e132
   req.group_name = "arm";
   moveit_msgs::Constraints pose_goal =
-      kinematic_constraints::constructGoalConstraints("m1n6a200_link_6", pose, tolerance_pose, tolerance_angle);
+      kinematic_constraints::constructGoalConstraints("m1n6a200_end_effector", pose, tolerance_pose, tolerance_angle);
   req.goal_constraints.push_back(pose_goal);
 
   // We now construct a planning context that encapsulate the scene,
