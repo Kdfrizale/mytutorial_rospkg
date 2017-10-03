@@ -186,6 +186,8 @@ int main(int argc, char** argv)
   //----------------------------------------Robot has planned to the first motion----------
   robot_state::RobotState& robot_state = planning_scene->getCurrentStateNonConst();
   planning_scene->setCurrentState(response.trajectory_start);
+  const robot_state::JointModelGroup* joint_model_group = robot_state.getJointModelGroup("chainArm");
+  robot_state.setJointGroupPositions(joint_model_group, response.trajectory.joint_trajectory.points.back().positions);
 
   //MUST SET ROBOT TO NEW THE LATEST STATE, EXMAPLE IS --
   /* First, set the state in the planning scene to the final state of the last plan */
