@@ -25,7 +25,7 @@ int main(int argc, char **argv)
   // MoveIt! operates on sets of joints called "planning groups" and stores them in an object called
   // the `JointModelGroup`. Throughout MoveIt! the terms "planning group" and "joint model group"
   // are used interchangably.
-  static const std::string PLANNING_GROUP = "arm";
+  static const std::string PLANNING_GROUP = "chainArm";
 
   // The :move_group_interface:`MoveGroup` class can be easily
   // setup using just the name of the planning group you would like to control and plan for.
@@ -39,21 +39,41 @@ int main(int argc, char **argv)
   const robot_state::JointModelGroup *joint_model_group =
     move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
 
-  // Visualization
-  // ^^^^^^^^^^^^^
-  //
-  // The package MoveItVisualTools provides many capabilties for visualizing objects, robots,
-  // and trajectories in Rviz as well as debugging tools such as step-by-step introspection of a script
+  namespace rvt = rviz_visual_tools;
+  moveit_visual_tools::MoveItVisualTools visual_tools("odom_combined");
+  visual_tools.deleteAllMarkers();
+
+    // Remote control is an introspection tool that allows users to step through a high level script
+    // via buttons and keyboard shortcuts in Rviz
+  visual_tools.loadRemoteControl();
+
+    // Rviz provides many types of markers, in this demo we will use text, cylinders, and spheres
+  Eigen::Affine3d text_pose = Eigen::Affine3d::Identity();
+  text_pose.translation().z() = 1.75; // above head of PR2
+  visual_tools.publishText(text_pose, "MoveGroupInterface Demo", rvt::WHITE, rvt::XLARGE);
+
+    // Batch publishing is used to reduce the number of messages being sent to Rviz for large visualizations
+  visual_tools.trigger();
+
+    // Getting Basic Information
+    // ^^^^^^^^^^^^^^^^^^^^^^^^^
+    //
+    // We can print the name of the reference frame for this robot.
+    ROS_INFO_NAMED("tutorial", "Reference frame: %s", move_group.getPlanningFrame().c_str());
+
+    // We can also print the name of the end-effector link for this group.
+    ROS_INFO_NAMED("tutorial", "End effector link: %s", move_group.getEndEffectorLink().c_str());
 
   // Planning to a Pose goal
   // ^^^^^^^^^^^^^^^^^^^^^^^
   // We can plan a motion for this group to a desired pose for the
   // end-effector.
   geometry_msgs::Pose target_pose1;
-  target_pose1.orientation.w = 0.5;
-  target_pose1.position.x = 0.28;
-  target_pose1.position.y = -0.7;
-  target_pose1.position.z = 1.0;
+  target_pose1.position.x = 0.0374196;
+  target_pose1.position.y = -0.12015;
+  target_pose1.position.z = 0.733757;
+  target_pose1.orientation.w = 1.0;
+
   move_group.setPoseTarget(target_pose1);
 
   // Now, we call the planner to compute the plan and visualize it.
@@ -63,6 +83,17 @@ int main(int argc, char **argv)
 
   bool success = move_group.plan(my_plan);
 
+  ROS_INFO_NAMED("tutorial", "Visualizing plan 1 (pose goal) %s", success ? "" : "FAILED");
+
+  // Visualizing plans
+  // ^^^^^^^^^^^^^^^^^
+  // We can also visualize the plan as a line with markers in Rviz.
+  ROS_INFO_NAMED("tutorial", "Visualizing plan 1 as trajectory line");
+  visual_tools.publishAxisLabeled(target_pose1, "pose1");
+  visual_tools.publishText(text_pose, "Pose Goal", rvt::WHITE, rvt::XLARGE);
+  visual_tools.publishTrajectoryLine(my_plan.trajectory_, joint_model_group);
+  visual_tools.trigger();
+  visual_tools.prompt("next step");
 
 
   // Moving to a pose goal
@@ -78,6 +109,7 @@ int main(int argc, char **argv)
 
   /* Uncomment below line when working with a real robot */
    move_group.move();
+   ros::Duration(5.0).sleep();
 
   // Planning to a joint-space goal
   // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

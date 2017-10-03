@@ -1,0 +1,6 @@
+<launch>
+
+  <node name="move_group_tutorial" pkg="mytutorialPkg" type="mymove_group_tutorial" respawn="false" output="screen">
+  </node>
+
+</launch>

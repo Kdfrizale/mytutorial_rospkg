@@ -129,15 +129,18 @@ int main(int argc, char** argv)
   planning_interface::MotionPlanResponse res;
   geometry_msgs::PoseStamped pose;
   pose.header.frame_id = "m1n6a200_link_base";
-  pose.pose.position.x = 0.0374196;
+  /*pose.pose.position.x = 0.0374196;
   pose.pose.position.y = -0.12015;
   pose.pose.position.z = 0.733757;
   pose.pose.orientation.w = 1.0;
-  /*
-  pose.pose.position.x = 0.265973;
-  pose.pose.position.y = 0.101761;
-  pose.pose.position.z = 0.554664;
-  pose.pose.orientation.w = 1.0; */
+  */
+  pose.pose.position.x = 0.103006;
+  pose.pose.position.y = -0.182455;
+  pose.pose.position.z = 0.785472;
+  pose.pose.orientation.x = 0.633357;
+  pose.pose.orientation.y = 0.314428;
+  pose.pose.orientation.z = 0.633351;
+  pose.pose.orientation.w = 0.31442;
 
   // A tolerance of 0.01 m is specified in position
   // and 0.01 radians in orientation
@@ -150,14 +153,11 @@ int main(int argc, char** argv)
   // package.
   //
   // .. _kinematic_constraints: http://docs.ros.org/indigo/api/moveit_core/html/namespacekinematic__constraints.html#a88becba14be9ced36fefc7980271e132
-  req.group_name = "arm";
+  req.group_name = "chainArm";
   moveit_msgs::Constraints pose_goal =
-      kinematic_constraints::constructGoalConstraints("m1n6a200_end_effector", pose, tolerance_pose, tolerance_angle);
-  req.goal_constraints.push_back(pose_goal);
+      kinematic_constraints::constructGoalConstraints("m1n6a200_link_finger_tip_2", pose, tolerance_pose, tolerance_angle);
 
-  // We now construct a planning context that encapsulate the scene,
-  // the request and the response. We call the planner using this
-  // planning context
+  req.goal_constraints.push_back(pose_goal);
   planning_interface::PlanningContextPtr context =
       planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
   context->solve(res);
@@ -166,8 +166,6 @@ int main(int argc, char** argv)
     ROS_ERROR("Could not compute plan successfully");
     return 0;
   }
-
-  ROS_INFO("I Made it here!!");
   // Visualize the result
   // ^^^^^^^^^^^^^^^^^^^^
   ros::Publisher display_publisher =
@@ -185,50 +183,115 @@ int main(int argc, char** argv)
 
   sleep_time.sleep();
 
+  //----------------------------------------Robot has planned to the first motion----------
+  robot_state::RobotState& robot_state = planning_scene->getCurrentStateNonConst();
+  planning_scene->setCurrentState(response.trajectory_start);
+
+  //MUST SET ROBOT TO NEW THE LATEST STATE, EXMAPLE IS --
+  /* First, set the state in the planning scene to the final state of the last plan */
+  //robot_state.setJointGroupPositions(joint_model_group, response.trajectory.joint_trajectory.points.back().positions);
+  /* Now, let's try to move to this new pose goal*/
+  //req.goal_constraints.clear();
+  //req.goal_constraints.push_back(pose_goal_2);
+  planning_interface::MotionPlanRequest req2;
+  planning_interface::MotionPlanResponse res2;
+  geometry_msgs::PoseStamped pose2;
+  pose2.header.frame_id = "m1n6a200_link_base";
+
+  pose2.pose.position.x = 0.103004;
+  pose2.pose.position.y = -0.183387;
+  pose2.pose.position.z = 0.723485;
+  pose2.pose.orientation.x = 0.633357;
+  pose2.pose.orientation.y = 0.314428;
+  pose2.pose.orientation.z = 0.633351;
+  pose2.pose.orientation.w = 0.31442;
+
+  req2.group_name = "chainArmLeft";
+
+  moveit_msgs::Constraints pose_goal2 =
+     kinematic_constraints::constructGoalConstraints("m1n6a200_link_finger_tip_1", pose2, tolerance_pose, tolerance_angle);
+  req2.goal_constraints.push_back(pose_goal2);
+  ROS_INFO("I Made it here!!");
+  // We now construct a planning context that encapsulate the scene,
+  // the request and the response. We call the planner using this
+  // planning context
+  planning_interface::PlanningContextPtr context2 =
+      planner_instance->getPlanningContext(planning_scene, req2, res2.error_code_);
+  context2->solve(res2);
+  if (res2.error_code_.val != res2.error_code_.SUCCESS)
+  {
+    ROS_ERROR("Could not compute plan successfully");
+    return 0;
+  }
+
+  // Visualize the result
+  // ^^^^^^^^^^^^^^^^^^^^
+  /*ros::Publisher display_publisher =
+      node_handle.advertise<moveit_msgs::DisplayTrajectory>("/move_group/display_planned_path", 1, true);
+  moveit_msgs::DisplayTrajectory display_trajectory;
+
+  /* Visualize the trajectory */
+  ROS_INFO("Visualizing the trajectory");
+  //moveit_msgs::MotionPlanResponse response;
+  res2.getMessage(response);
+
+  display_trajectory.trajectory_start = response.trajectory_start;
+  display_trajectory.trajectory.push_back(response.trajectory);
+  display_publisher.publish(display_trajectory);
+
+  sleep_time.sleep();
+
+
   // Joint Space Goals
   // ^^^^^^^^^^^^^^^^^
   /* First, set the state in the planning scene to the final state of the last plan */
-  robot_state::RobotState& robot_state = planning_scene->getCurrentStateNonConst();
+/*  robot_state::RobotState& robot_state = planning_scene->getCurrentStateNonConst();
   planning_scene->setCurrentState(response.trajectory_start);
-  const robot_state::JointModelGroup* joint_model_group = robot_state.getJointModelGroup("arm");
+  const robot_state::JointModelGroup* joint_model_group = robot_state.getJointModelGroup("right_finger");
   robot_state.setJointGroupPositions(joint_model_group, response.trajectory.joint_trajectory.points.back().positions);
 
   // Now, setup a joint space goal
   robot_state::RobotState goal_state(robot_model);
-  std::vector<double> joint_values(7, 0.0);
-  joint_values[0] = -2.0;
-  joint_values[3] = -0.2;
-  joint_values[5] = -0.15;
+  std::vector<double> joint_values(2, 1.0);
+  joint_values[0] = 1.0;
+  joint_values[1] = 1.0;
+  //joint_values[3] = -0.2;
+  //joint_values[5] = -0.15;
+  const std::vector<std::string> &joint_names = joint_model_group->getVariableNames();
+  for (std::size_t i = 0; i < joint_names.size(); ++i)
+  {
+    ROS_INFO("Joint %s: %f", joint_names[i].c_str(), joint_values[i]);
+  }
   goal_state.setJointGroupPositions(joint_model_group, joint_values);
   moveit_msgs::Constraints joint_goal = kinematic_constraints::constructGoalConstraints(goal_state, joint_model_group);
   req.goal_constraints.clear();
   req.goal_constraints.push_back(joint_goal);
 
   // Call the planner and visualize the trajectory
-  /* Re-construct the planning context */
+  // Re-construct the planning context
   context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
-  /* Call the Planner */
+  //Call the Planner
   context->solve(res);
-  /* Check that the planning was successful */
+  // Check that the planning was successful
   if (res.error_code_.val != res.error_code_.SUCCESS)
   {
     ROS_ERROR("Could not compute plan successfully");
     return 0;
   }
-  /* Visualize the trajectory */
+  //Visualize the trajectory
   ROS_INFO("Visualizing the trajectory");
   res.getMessage(response);
   display_trajectory.trajectory_start = response.trajectory_start;
   display_trajectory.trajectory.push_back(response.trajectory);
 
-  /* Now you should see two planned trajectories in series*/
+  //Now you should see two planned trajectories in series
   display_publisher.publish(display_trajectory);
 
-  /* We will add more goals. But first, set the state in the planning
-     scene to the final state of the last plan */
+  // We will add more goals. But first, set the state in the planning
+    // scene to the final state of the last plan
   robot_state.setJointGroupPositions(joint_model_group, response.trajectory.joint_trajectory.points.back().positions);
 
-  /* Now, we go back to the first goal*/
+  //Now, we go back to the first goal
   req.goal_constraints.clear();
   req.goal_constraints.push_back(pose_goal);
   context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
@@ -236,7 +299,7 @@ int main(int argc, char** argv)
   res.getMessage(response);
   display_trajectory.trajectory.push_back(response.trajectory);
   display_publisher.publish(display_trajectory);
-
+*/
 
   // END_TUTORIAL
   sleep_time.sleep();
