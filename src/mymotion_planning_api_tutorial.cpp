@@ -134,13 +134,30 @@ int main(int argc, char** argv)
   pose.pose.position.z = 0.733757;
   pose.pose.orientation.w = 1.0;
   */
-  pose.pose.position.x = 0.103006;
+  /*pose.pose.position.x = 0.103006;
   pose.pose.position.y = -0.182455;
   pose.pose.position.z = 0.785472;
   pose.pose.orientation.x = 0.633357;
   pose.pose.orientation.y = 0.314428;
   pose.pose.orientation.z = 0.633351;
-  pose.pose.orientation.w = 0.31442;
+  pose.pose.orientation.w = 0.31442;*/
+  pose.pose.position.x = 0.305735; //pose is finger tip2
+  pose.pose.position.y = 0.196963;
+  pose.pose.position.z = 0.663391;
+  pose.pose.orientation.x = 0.623481;
+  pose.pose.orientation.y = 0.3335;
+  pose.pose.orientation.z = 0.623522;
+  pose.pose.orientation.w = 0.333571;
+
+geometry_msgs::PoseStamped poseLink6;
+  poseLink6.header.frame_id = "m1n6a200_link_base";
+  poseLink6.pose.position.x = 0.308219;
+  poseLink6.pose.position.y = 0.0494515;
+  poseLink6.pose.position.z = 0.727438;
+  poseLink6.pose.orientation.x = 0.615034;
+  poseLink6.pose.orientation.y = 0.0;
+  poseLink6.pose.orientation.z = 0.0;
+  poseLink6.pose.orientation.w = 0.788501;
 
   // A tolerance of 0.01 m is specified in position
   // and 0.01 radians in orientation
@@ -158,6 +175,11 @@ int main(int argc, char** argv)
       kinematic_constraints::constructGoalConstraints("m1n6a200_link_finger_tip_2", pose, tolerance_pose, tolerance_angle);
 
   req.goal_constraints.push_back(pose_goal);
+  moveit_msgs::Constraints pose_goal2 =
+      kinematic_constraints::constructGoalConstraints("m1n6a200_link_6", poseLink6, tolerance_pose, tolerance_angle);
+
+  req.goal_constraints.push_back(pose_goal2);
+
   planning_interface::PlanningContextPtr context =
       planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
   context->solve(res);
@@ -200,18 +222,20 @@ int main(int argc, char** argv)
   geometry_msgs::PoseStamped pose2;
   pose2.header.frame_id = "m1n6a200_link_base";
 
-  pose2.pose.position.x = 0.103004;
-  pose2.pose.position.y = -0.183387;
-  pose2.pose.position.z = 0.723485;
-  pose2.pose.orientation.x = 0.633357;
-  pose2.pose.orientation.y = 0.314428;
-  pose2.pose.orientation.z = 0.633351;
-  pose2.pose.orientation.w = 0.31442;
+  pose2.pose.position.x = 0.30573;//Left Finger tip
+  pose2.pose.position.y = 0.211976;
+  pose2.pose.position.z = 0.723024;
+  pose2.pose.orientation.x = 0.648451;
+  pose2.pose.orientation.y = 0.282066;
+  pose2.pose.orientation.z = -0.648369;
+  pose2.pose.orientation.w = -0.282078;
 
   req2.group_name = "chainArmLeft";
 
-  moveit_msgs::Constraints pose_goal2 =
+  moveit_msgs::Constraints pose_goal3 =
      kinematic_constraints::constructGoalConstraints("m1n6a200_link_finger_tip_1", pose2, tolerance_pose, tolerance_angle);
+  req2.goal_constraints.push_back(pose_goal3);
+
   req2.goal_constraints.push_back(pose_goal2);
   ROS_INFO("I Made it here!!");
   // We now construct a planning context that encapsulate the scene,
