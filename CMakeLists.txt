@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   sensor_msgs
   std_msgs
+  message_generation
   moveit_core
   moveit_ros_planning
   moveit_ros_planning_interface
@@ -34,14 +35,28 @@ endif()
 
 find_package(Boost REQUIRED system filesystem date_time thread)
 
+add_message_files(
+  FILES
+  HandPose.msg
+  HandStampedPose.msg
+)
+
+generate_messages(
+  DEPENDENCIES
+  geometry_msgs
+)
+
 catkin_package(
   CATKIN_DEPENDS
+    message_generation
     moveit_core
     moveit_ros_planning_interface
     interactive_markers
   DEPENDS
     EIGEN3
 )
+
+
 
 ###########
 ## Build ##
@@ -74,6 +89,9 @@ install(TARGETS mymotion_planning_api_tutorial DESTINATION ${CATKIN_PACKAGE_BIN_
 add_executable(myPlanner src/myPlanner.cpp)
 target_link_libraries(myPlanner ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 install(TARGETS myPlanner DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+
+add_executable(myDummyPub src/myDummyPub.cpp)
+target_link_libraries(myDummyPub ${catkin_LIBRARIES})
 
 
 install(TARGETS mykinematic_model_tutorial DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
