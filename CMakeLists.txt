@@ -71,6 +71,9 @@ add_executable(mymotion_planning_api_tutorial src/mymotion_planning_api_tutorial
 target_link_libraries(mymotion_planning_api_tutorial ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 install(TARGETS mymotion_planning_api_tutorial DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
+add_executable(myPlanner src/myPlanner.cpp)
+target_link_libraries(myPlanner ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+install(TARGETS myPlanner DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 
 install(TARGETS mykinematic_model_tutorial DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
