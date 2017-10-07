@@ -11,6 +11,8 @@
 
 #include <boost/scoped_ptr.hpp>
 
+#include <ctime>
+
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "move_group_tutorial");
@@ -83,7 +85,7 @@ int main(int argc, char** argv)
   ros::WallDuration sleep_time(15.0);
   sleep_time.sleep();
 
-
+  //---------Loop of the MAIN PROGRAM------------------------------
 
   // Pose Goal
   // ^^^^^^^^^
@@ -91,6 +93,11 @@ int main(int argc, char** argv)
   // specifying the desired pose of the end-effector as input.
   planning_interface::MotionPlanRequest req;
   planning_interface::MotionPlanResponse res;
+
+  //Start timer
+  std::clock_t start;
+  double duration;
+  start = std::clock();
 
   geometry_msgs::PoseStamped pose;
   pose.header.frame_id = "m1n6a200_link_base";
@@ -134,7 +141,13 @@ int main(int argc, char** argv)
 
   planning_interface::PlanningContextPtr context =
       planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
+
+
+
   context->solve(res);
+
+  duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+  ROS_INFO("It took : [%f]", duration);
   if (res.error_code_.val != res.error_code_.SUCCESS)
   {
     ROS_ERROR("Could not compute plan successfully");
@@ -155,8 +168,11 @@ int main(int argc, char** argv)
   display_trajectory.trajectory.push_back(response.trajectory);
   display_publisher.publish(display_trajectory);
 
-  ros::WallDuration waitForPlan_time(3.0);
-  waitForPlan_time.sleep();
+  duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+  ROS_INFO("It took to display total : [%f]", duration);
+
+  //ros::WallDuration waitForPlan_time(3.0);
+  //waitForPlan_time.sleep();
 
   //-------------Robot has planned to the first motion------------------------------------
   robot_state::RobotState& robot_state = planning_scene->getCurrentStateNonConst();
@@ -218,7 +234,7 @@ int main(int argc, char** argv)
   display_trajectory.trajectory.push_back(response.trajectory);
   display_publisher.publish(display_trajectory);
 
-  waitForPlan_time.sleep();
+  //waitForPlan_time.sleep();
 
   // END_TUTORIAL
   sleep_time.sleep();
