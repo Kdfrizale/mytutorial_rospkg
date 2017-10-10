@@ -9,10 +9,14 @@
 #include <moveit/kinematic_constraints/utils.h>
 #include <moveit_msgs/DisplayTrajectory.h>
 #include <moveit_msgs/PlanningScene.h>
-
+#include <moveit_msgs/RobotTrajectory.h>
+#include <moveit_msgs/ExecuteTrajectoryAction.h>
+#include <moveit_msgs/ExecuteTrajectoryGoal.h>
 #include <boost/scoped_ptr.hpp>
 
 #include <ctime>
+#include <actionlib/client/simple_action_client.h>
+#include <actionlib/client/terminal_state.h>
 
 geometry_msgs::PoseStamped poseTip2;//Right Finger tip
 geometry_msgs::PoseStamped poseLink6;//wrist
@@ -236,6 +240,23 @@ int main(int argc, char** argv)
     //there are four other topics under exectute_trajectory that may be useful
 
     //TODO this I need to set up an action clint that can push a goal to the action server "exectute_trajectory"
+    actionlib::SimpleActionClient<moveit_msgs::ExecuteTrajectoryAction> ac("execute_trajectory",false);
+    ROS_INFO("Waiting for action server to start.");
+    ac.waitForServer();
+
+    //moveit_msgs::ExecuteTrajectoryAction goal;
+    moveit_msgs::ExecuteTrajectoryGoal goal;
+    goal.trajectory = midResponse.trajectory;
+    ac.sendGoal(goal);
+
+    bool finished_before_timeout = ac.waitForResult(ros::Duration(30.0));
+    if (finished_before_timeout){
+      actionlib::SimpleClientGoalState state = ac.getState();
+      ROS_INFO("Action finished: %s",state.toString().c_str());
+    }
+    else{
+      ROS_INFO("Action did not finish before the time out.");
+    }
 
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////
