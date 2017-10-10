@@ -203,7 +203,7 @@ int main(int argc, char** argv)
     }
 
     moveit_msgs::MotionPlanResponse endResponse;
-    res.getMessage(endResponse);
+    res2.getMessage(endResponse);
 
     robot_state = planning_scene->getCurrentStateNonConst();
     planning_scene->setCurrentState(endResponse.trajectory_start);
@@ -232,6 +232,11 @@ int main(int argc, char** argv)
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     //Move the physical robot to the planned coordinates
     //////////////////////////////////////////////////////////////////////////////////////////////////////
+    //IN here I need to publish a moveit_msgs/ExecuteTrajectoryActionGoal to the topic /execute_trajectory/goal
+    //there are four other topics under exectute_trajectory that may be useful
+
+    //TODO this I need to set up an action clint that can push a goal to the action server "exectute_trajectory"
+
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     //Reset
