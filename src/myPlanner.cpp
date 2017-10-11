@@ -26,7 +26,7 @@ bool messageReceived = false;
 // A tolerance of 0.01 m is specified in position
 // and 0.01 radians in orientation
 std::vector<double> tolerance_pose(3, 0.01);
-std::vector<double> tolerance_angle(3, 0.01);
+std::vector<double> tolerance_angle(3, 0.01);//0.01 is normal
 
 
 void updatePoseValues(const mytutorialPkg::HandStampedPose::ConstPtr& msg){
@@ -247,10 +247,25 @@ int main(int argc, char** argv)
     //moveit_msgs::ExecuteTrajectoryAction goal;
     moveit_msgs::ExecuteTrajectoryGoal goal;
     goal.trajectory = midResponse.trajectory;
+    //goal.state = "hello";
     ac.sendGoal(goal);
 
     bool finished_before_timeout = ac.waitForResult(ros::Duration(30.0));
     if (finished_before_timeout){
+      actionlib::SimpleClientGoalState state = ac.getState();
+      ROS_INFO("Action finished: %s",state.toString().c_str());
+    }
+    else{
+      ROS_INFO("Action did not finish before the time out.");
+    }
+
+    moveit_msgs::ExecuteTrajectoryGoal goal2;
+    goal2.trajectory = endResponse.trajectory;
+    //goal.state = "hello";
+    ac.sendGoal(goal2);
+
+    bool finished_before_timeout2 = ac.waitForResult(ros::Duration(30.0));
+    if (finished_before_timeout2){
       actionlib::SimpleClientGoalState state = ac.getState();
       ROS_INFO("Action finished: %s",state.toString().c_str());
     }
