@@ -4,10 +4,21 @@
 //#include "sensor_msgs/JointState.h"
 #include <cstdlib>
 
+#include <signal.h>
 
+void ouch(int sig){
+  ROS_INFO("I caught a signal");
+}
 
 int main(int argc, char **argv)
 {
+  struct sigaction act;
+  act.sa_handler = ouch;
+  sigemptyset(&act.sa_mask);
+  act.sa_flags = 0;
+  sigaction(SIGINT, &act, 0);
+
+  
   ros::init(argc,argv, "myDummyPub");
   ros::NodeHandle n;
   ros::Publisher chatter_pub = n.advertise<mytutorialPkg::HandStampedPose>("/handPoseTopic", 10);
@@ -48,6 +59,9 @@ int main(int argc, char **argv)
     sensedPoseTip2.pose.position.y += 0.001;
     sensedPoseLink6.pose.position.y += 0.001;
     sensedPoseTip1.pose.position.y += 0.001;
+    sensedPoseTip2.pose.position.x += 0.001;
+    sensedPoseLink6.pose.position.x += 0.001;
+    sensedPoseTip1.pose.position.x += 0.001;
 
     mytutorialPkg::HandStampedPose msg;
     msg.poseTip2 = sensedPoseTip2;
