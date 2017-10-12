@@ -42,6 +42,14 @@ void updatePoseValues(const mytutorialPkg::HandStampedPose::ConstPtr& msg){
   messageReceived = true;
 }
 
+moveit_msgs::RobotTrajectory combineTrajectories(moveit_msgs::RobotTrajectory mainTrajectory, moveit_msgs::RobotTrajectory secondaryTrajectory){
+  //Set to the main trajectory
+  moveit_msgs::RobotTrajectory combineTrajectories = mainTrajectory;
+  //Then add additional joint_names and their corresponding values(pos,vel,accel) to the combineTrajectories
+  //Also beaware of the time from start for each point, it may be neseccary to take the largest one out of main and secondary
+
+}
+
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "move_group_tutorial");
@@ -71,6 +79,8 @@ int main(int argc, char** argv)
   // :planning_scene:`PlanningScene` that maintains the state of
   // the world (including the robot).
   planning_scene::PlanningScenePtr planning_scene(new planning_scene::PlanningScene(robot_model));
+  planning_scene::PlanningScenePtr planning_scene2(new planning_scene::PlanningScene(robot_model));
+
 
   planning_pipeline::PlanningPipelinePtr planning_pipeline(new planning_pipeline::PlanningPipeline(robot_model, node_handle, "planning_plugin", "request_adapters"));
 
@@ -152,7 +162,8 @@ int main(int argc, char** argv)
       planning_interface::MotionPlanResponse res2;
 
 
-      req.group_name = "chainArm";
+      //req.group_name = "chainArm";
+      req.group_name = "arm_joints_right";
       moveit_msgs::Constraints pose_goal_tip_2 = kinematic_constraints::constructGoalConstraints("m1n6a200_link_finger_tip_2", poseTip2, tolerance_pose, tolerance_angle);
       req.goal_constraints.push_back(pose_goal_tip_2);
 
@@ -181,7 +192,7 @@ int main(int argc, char** argv)
       duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
       ROS_INFO("It took [%f] seconds to get past the first plan", duration);
 
-    //  ROS_INFO("It took [%f] HEHEHHEHEHEHEHEHEHEHHHEHEHEHEH",midResponse.trajectory.joint_trajectory.points[1].time_from_start);
+  /*  //  ROS_INFO("It took [%f] HEHEHHEHEHEHEHEHEHEHHHEHEHEHEH",midResponse.trajectory.joint_trajectory.points[1].time_from_start);
       //ROS_INFO("It took [%f] seconds to plan midResponse", midResponse.planning_time);
       ROS_INFO("ATTEMPTING TO SEND MOVE COMMANDS...");
       actionlib::SimpleActionClient<moveit_msgs::ExecuteTrajectoryAction> ac1("execute_trajectory",false);
@@ -203,13 +214,14 @@ int main(int argc, char** argv)
 
       duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
       ROS_INFO("It took [%f] seconds to get past the first move", duration);
-
+*/
       robot_state::RobotState& robot_state = planning_scene->getCurrentStateNonConst();
       planning_scene->setCurrentState(midResponse.trajectory_start);
       const robot_state::JointModelGroup* joint_model_group = robot_state.getJointModelGroup("chainArm");
       robot_state.setJointGroupPositions(joint_model_group, midResponse.trajectory.joint_trajectory.points.back().positions);
 
-      req2.group_name = "chainArmLeft";
+      //req2.group_name = "chainArmLeft";
+      req2.group_name = "arm_joints_left";
       moveit_msgs::Constraints pose_goal_tip_1 = kinematic_constraints::constructGoalConstraints("m1n6a200_link_finger_tip_1", poseTip1, tolerance_pose, tolerance_angle);
       req2.goal_constraints.push_back(pose_goal_tip_1);
       req2.goal_constraints.push_back(pose_goal_link6);
@@ -238,6 +250,8 @@ int main(int argc, char** argv)
       planning_scene->setCurrentState(endResponse.trajectory_start);
       joint_model_group = robot_state.getJointModelGroup("chainArmLeft");
       robot_state.setJointGroupPositions(joint_model_group, endResponse.trajectory.joint_trajectory.points.back().positions);
+
+
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     //show the result in Rviz
@@ -282,8 +296,11 @@ int main(int argc, char** argv)
         ROS_INFO("Action did not finish before the time out.");
       }
 */
+
+
       moveit_msgs::ExecuteTrajectoryGoal goal2;
-      goal2.trajectory = endResponse.trajectory;
+      //goal2.trajectory = endResponse.trajectory;
+      goal2.trajectory = combineTrajectories(midResponse.trajectory, endResponse.trajectory);
       //goal.state = "hello";
       ac.sendGoalAndWait(goal2);
 
