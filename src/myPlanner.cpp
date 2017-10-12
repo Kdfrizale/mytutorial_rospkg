@@ -36,9 +36,9 @@ void updatePoseValues(const mytutorialPkg::HandStampedPose::ConstPtr& msg){
   poseTip2 = msg->poseTip2;
   poseLink6 = msg->poseLink6;
   poseTip1 = msg->poseTip1;
-  poseTip2.header.stamp = ros::Time(0);
-  poseLink6.header.stamp = ros::Time(0);
-  poseTip1.header.stamp = ros::Time(0);
+  //poseTip2.header.stamp = ros::Time(0);
+  //poseLink6.header.stamp = ros::Time(0);
+  //poseTip1.header.stamp = ros::Time(0);
   messageReceived = true;
 }
 
@@ -178,8 +178,11 @@ int main(int argc, char** argv)
       moveit_msgs::MotionPlanResponse midResponse;
       res.getMessage(midResponse);//Get the first motion plan
 
-      ROS_INFO("It took [%f] HEHEHHEHEHEHEHEHEHEHHHEHEHEHEH",midResponse.trajectory.joint_trajectory.points[1].time_from_start);
-      ROS_INFO("It took [%f] seconds to plan midResponse", midResponse.planning_time);
+      duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+      ROS_INFO("It took [%f] seconds to get past the first plan", duration);
+
+    //  ROS_INFO("It took [%f] HEHEHHEHEHEHEHEHEHEHHHEHEHEHEH",midResponse.trajectory.joint_trajectory.points[1].time_from_start);
+      //ROS_INFO("It took [%f] seconds to plan midResponse", midResponse.planning_time);
       ROS_INFO("ATTEMPTING TO SEND MOVE COMMANDS...");
       actionlib::SimpleActionClient<moveit_msgs::ExecuteTrajectoryAction> ac1("execute_trajectory",false);
       ROS_INFO("Waiting for action server to start.");
@@ -187,7 +190,7 @@ int main(int argc, char** argv)
 
       moveit_msgs::ExecuteTrajectoryGoal goal;
       goal.trajectory = midResponse.trajectory;
-      ac1.sendGoal(goal);
+      ac1.sendGoalAndWait(goal);
 
       bool finished_before_timeout = ac1.waitForResult(ros::Duration(30.0));
       if (finished_before_timeout){
@@ -197,6 +200,9 @@ int main(int argc, char** argv)
       else{
         ROS_INFO("Action did not finish before the time out.");
       }
+
+      duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+      ROS_INFO("It took [%f] seconds to get past the first move", duration);
 
       robot_state::RobotState& robot_state = planning_scene->getCurrentStateNonConst();
       planning_scene->setCurrentState(midResponse.trajectory_start);
@@ -221,6 +227,9 @@ int main(int argc, char** argv)
         continue;
 
       }
+
+      duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+      ROS_INFO("It took [%f] seconds to get past the second plan", duration);
 
       moveit_msgs::MotionPlanResponse endResponse;
       res2.getMessage(endResponse);
@@ -249,6 +258,9 @@ int main(int argc, char** argv)
       display_publisher.publish(display_trajectory);
       waitForPlan_time.sleep();
 
+      duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+      ROS_INFO("It took [%f] seconds to get past the rviz display", duration);
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     //Move the physical robot to the planned coordinates
     //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -273,7 +285,7 @@ int main(int argc, char** argv)
       moveit_msgs::ExecuteTrajectoryGoal goal2;
       goal2.trajectory = endResponse.trajectory;
       //goal.state = "hello";
-      ac.sendGoal(goal2);
+      ac.sendGoalAndWait(goal2);
 
       bool finished_before_timeout2 = ac.waitForResult(ros::Duration(30.0));
       if (finished_before_timeout2){
@@ -283,6 +295,8 @@ int main(int argc, char** argv)
       else{
         ROS_INFO("Action did not finish before the time out.");
       }
+      duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+      ROS_INFO("It took [%f] seconds to get past the second move", duration);
 
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////
