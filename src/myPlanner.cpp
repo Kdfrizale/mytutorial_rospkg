@@ -18,6 +18,8 @@
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/client/terminal_state.h>
 
+#include <moveit/planning_pipeline/planning_pipeline.h>
+
 geometry_msgs::PoseStamped poseTip2;//Right Finger tip
 geometry_msgs::PoseStamped poseLink6;//wrist
 geometry_msgs::PoseStamped poseTip1;//Left Finger tip
@@ -34,6 +36,9 @@ void updatePoseValues(const mytutorialPkg::HandStampedPose::ConstPtr& msg){
   poseTip2 = msg->poseTip2;
   poseLink6 = msg->poseLink6;
   poseTip1 = msg->poseTip1;
+  poseTip2.header.stamp = ros::Time(0);
+  poseLink6.header.stamp = ros::Time(0);
+  poseTip1.header.stamp = ros::Time(0);
   messageReceived = true;
 }
 
@@ -67,12 +72,15 @@ int main(int argc, char** argv)
   // the world (including the robot).
   planning_scene::PlanningScenePtr planning_scene(new planning_scene::PlanningScene(robot_model));
 
+  planning_pipeline::PlanningPipelinePtr planning_pipeline(new planning_pipeline::PlanningPipeline(robot_model, node_handle, "planning_plugin", "request_adapters"));
 
   // We will now construct a loader to load a planner, by name.
   // Note that we are using the ROS pluginlib library here.
-  boost::scoped_ptr<pluginlib::ClassLoader<planning_interface::PlannerManager>> planner_plugin_loader;
+/*  boost::scoped_ptr<pluginlib::ClassLoader<planning_interface::PlannerManager>> planner_plugin_loader;
   planning_interface::PlannerManagerPtr planner_instance;
   std::string planner_plugin_name;
+
+  planning_pipeline::PlanningPipelinePtr planning_pipeline(new planning_pipeline::PlanningPipeline(robot_model, node_handle, "planning_plugin", "request_adapters"));
 
   // We will get the name of planning plugin we want to load
   // from the ROS param server, and then load the planner
@@ -104,6 +112,7 @@ int main(int argc, char** argv)
     ROS_ERROR_STREAM("Exception while loading planner '" << planner_plugin_name << "': " << ex.what() << std::endl
                                                          << "Available plugins: " << ss.str());
   }
+*/
 
   /* Sleep a little to allow time to startup rviz, etc. */
   ros::WallDuration sleep_time(15.0);
@@ -142,6 +151,7 @@ int main(int argc, char** argv)
       planning_interface::MotionPlanRequest req2;
       planning_interface::MotionPlanResponse res2;
 
+
       req.group_name = "chainArm";
       moveit_msgs::Constraints pose_goal_tip_2 = kinematic_constraints::constructGoalConstraints("m1n6a200_link_finger_tip_2", poseTip2, tolerance_pose, tolerance_angle);
       req.goal_constraints.push_back(pose_goal_tip_2);
@@ -149,10 +159,12 @@ int main(int argc, char** argv)
       moveit_msgs::Constraints pose_goal_link6 = kinematic_constraints::constructGoalConstraints("m1n6a200_link_6", poseLink6, tolerance_pose, tolerance_angle);
       req.goal_constraints.push_back(pose_goal_link6);
 
-      planning_interface::PlanningContextPtr context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
+      //planning_interface::PlanningContextPtr context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
 
       ROS_INFO("about to start planning");
-      context->solve(res);
+      //context->solve(res);
+      planning_pipeline->generatePlan(planning_scene,req,res);
+
 
       if (res.error_code_.val != res.error_code_.SUCCESS){
       //  ROS_ERROR("Could not compute plan successfully");
@@ -166,6 +178,8 @@ int main(int argc, char** argv)
       moveit_msgs::MotionPlanResponse midResponse;
       res.getMessage(midResponse);//Get the first motion plan
 
+      ROS_INFO("It took [%f] HEHEHHEHEHEHEHEHEHEHHHEHEHEHEH",midResponse.trajectory.joint_trajectory.points[1].time_from_start);
+      ROS_INFO("It took [%f] seconds to plan midResponse", midResponse.planning_time);
       ROS_INFO("ATTEMPTING TO SEND MOVE COMMANDS...");
       actionlib::SimpleActionClient<moveit_msgs::ExecuteTrajectoryAction> ac1("execute_trajectory",false);
       ROS_INFO("Waiting for action server to start.");
@@ -194,10 +208,11 @@ int main(int argc, char** argv)
       req2.goal_constraints.push_back(pose_goal_tip_1);
       req2.goal_constraints.push_back(pose_goal_link6);
 
-      planning_interface::PlanningContextPtr context2 = planner_instance->getPlanningContext(planning_scene, req2, res2.error_code_);
+      //planning_interface::PlanningContextPtr context2 = planner_instance->getPlanningContext(planning_scene, req2, res2.error_code_);
 
       ROS_INFO("about to start planning2");
-      context2->solve(res2);
+      //context2->solve(res2);
+      planning_pipeline->generatePlan(planning_scene,req2,res2);
 
       if (res2.error_code_.val != res2.error_code_.SUCCESS){
         //ROS_ERROR("Could not compute plan successfully");
@@ -288,7 +303,7 @@ int main(int argc, char** argv)
   // END_TUTORIAL
   sleep_time.sleep();
   ROS_INFO("Done");
-  planner_instance.reset();
+  //planner_instance.reset();
 
   return 0;
 }

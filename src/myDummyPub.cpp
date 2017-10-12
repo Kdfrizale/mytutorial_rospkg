@@ -4,21 +4,12 @@
 //#include "sensor_msgs/JointState.h"
 #include <cstdlib>
 
-#include <signal.h>
-
 void ouch(int sig){
   ROS_INFO("I caught a signal");
 }
 
 int main(int argc, char **argv)
 {
-  struct sigaction act;
-  act.sa_handler = ouch;
-  sigemptyset(&act.sa_mask);
-  act.sa_flags = 0;
-  sigaction(SIGINT, &act, 0);
-
-  
   ros::init(argc,argv, "myDummyPub");
   ros::NodeHandle n;
   ros::Publisher chatter_pub = n.advertise<mytutorialPkg::HandStampedPose>("/handPoseTopic", 10);

@@ -1,3 +1,22 @@
+#include <pluginlib/class_loader.h>
+#include <ros/ros.h>
+#include <mytutorialPkg/HandPose.h>
+
+// MoveIt!
+#include <moveit/robot_model_loader/robot_model_loader.h>
+#include <moveit/planning_interface/planning_interface.h>
+#include <moveit/planning_scene/planning_scene.h>
+#include <moveit/kinematic_constraints/utils.h>
+#include <moveit_msgs/DisplayTrajectory.h>
+#include <moveit_msgs/PlanningScene.h>
+#include <moveit_msgs/RobotTrajectory.h>
+#include <moveit_msgs/ExecuteTrajectoryAction.h>
+#include <moveit_msgs/ExecuteTrajectoryGoal.h>
+#include <boost/scoped_ptr.hpp>
+
+#include <ctime>
+#include <actionlib/client/simple_action_client.h>
+#include <actionlib/client/terminal_state.h>
 
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
@@ -10,119 +29,135 @@
 
 #include <moveit_visual_tools/moveit_visual_tools.h>
 
-int main(int argc, char **argv)
+geometry_msgs::Pose poseTip2;//Right Finger tip
+geometry_msgs::Pose poseLink6;//wrist
+geometry_msgs::Pose poseTip1;//Left Finger tip
+bool messageReceived = false;
+
+// A tolerance of 0.01 m is specified in position
+// and 0.01 radians in orientation
+std::vector<double> tolerance_pose(3, 0.01);
+std::vector<double> tolerance_angle(3, 0.01);//0.01 is normal
+
+
+void updatePoseValues(const mytutorialPkg::HandPose::ConstPtr& msg){
+  ROS_INFO_THROTTLE(1,"I received a message.. now processing...");
+  poseTip2 = msg->poseTip2;
+  poseLink6 = msg->poseLink6;
+  poseTip1 = msg->poseTip1;
+  messageReceived = true;
+}
+
+int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "move_group_interface_tutorial");
-  ros::NodeHandle node_handle;
+  ros::init(argc, argv, "move_group_tutorial");
   ros::AsyncSpinner spinner(1);
   spinner.start();
+  ros::NodeHandle node_handle("~");
 
-  // BEGIN_TUTORIAL
-  //
-  // Setup
-  // ^^^^^
-  //
-  // MoveIt! operates on sets of joints called "planning groups" and stores them in an object called
-  // the `JointModelGroup`. Throughout MoveIt! the terms "planning group" and "joint model group"
-  // are used interchangably.
-  static const std::string PLANNING_GROUP = "chainArm";
+  static const std::string PLANNING_GROUP_ARM = "chainArm";
+  static const std::string PLANNING_GROUP_ARMLEFT = "chainArmLeft";
 
-  // The :move_group_interface:`MoveGroup` class can be easily
-  // setup using just the name of the planning group you would like to control and plan for.
-  moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP);
+  moveit::planning_interface::MoveGroupInterface move_group(PLANNING_GROUP_ARM);
+  moveit::planning_interface::MoveGroupInterface move_group2(PLANNING_GROUP_ARMLEFT);
 
-  // We will use the :planning_scene_interface:`PlanningSceneInterface`
-  // class to add and remove collision objects in our "virtual world" scene
   moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
 
-  // Raw pointers are frequently used to refer to the planning group for improved performance.
-  const robot_state::JointModelGroup *joint_model_group =
-    move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP);
+  const robot_state::JointModelGroup *joint_model_group = move_group.getCurrentState()->getJointModelGroup(PLANNING_GROUP_ARM);
 
+  const robot_state::JointModelGroup *joint_model_group2 = move_group2.getCurrentState()->getJointModelGroup(PLANNING_GROUP_ARMLEFT);
+
+
+  // Visualization
+  // ^^^^^^^^^^^^^
+  //
+  // The package MoveItVisualTools provides many capabilties for visualizing objects, robots,
+  // and trajectories in Rviz as well as debugging tools such as step-by-step introspection of a script
   namespace rvt = rviz_visual_tools;
-  moveit_visual_tools::MoveItVisualTools visual_tools("odom_combined");
+  moveit_visual_tools::MoveItVisualTools visual_tools("m1n6a200_link_base");
   visual_tools.deleteAllMarkers();
 
-    // Remote control is an introspection tool that allows users to step through a high level script
-    // via buttons and keyboard shortcuts in Rviz
+  // Remote control is an introspection tool that allows users to step through a high level script
+  // via buttons and keyboard shortcuts in Rviz
   visual_tools.loadRemoteControl();
 
-    // Rviz provides many types of markers, in this demo we will use text, cylinders, and spheres
+  // Rviz provides many types of markers, in this demo we will use text, cylinders, and spheres
   Eigen::Affine3d text_pose = Eigen::Affine3d::Identity();
   text_pose.translation().z() = 1.75; // above head of PR2
   visual_tools.publishText(text_pose, "MoveGroupInterface Demo", rvt::WHITE, rvt::XLARGE);
 
-    // Batch publishing is used to reduce the number of messages being sent to Rviz for large visualizations
+  // Batch publishing is used to reduce the number of messages being sent to Rviz for large visualizations
   visual_tools.trigger();
 
-    // Getting Basic Information
-    // ^^^^^^^^^^^^^^^^^^^^^^^^^
-    //
-    // We can print the name of the reference frame for this robot.
-    ROS_INFO_NAMED("tutorial", "Reference frame: %s", move_group.getPlanningFrame().c_str());
-
-    // We can also print the name of the end-effector link for this group.
-    ROS_INFO_NAMED("tutorial", "End effector link: %s", move_group.getEndEffectorLink().c_str());
-
-  // Planning to a Pose goal
-  // ^^^^^^^^^^^^^^^^^^^^^^^
-  // We can plan a motion for this group to a desired pose for the
-  // end-effector.
-  geometry_msgs::Pose target_pose1;
-  target_pose1.position.x = 0.0374196;
-  target_pose1.position.y = -0.12015;
-  target_pose1.position.z = 0.733757;
-  target_pose1.orientation.w = 1.0;
-
-  move_group.setPoseTarget(target_pose1);
-
-  // Now, we call the planner to compute the plan and visualize it.
-  // Note that we are just planning, not asking move_group
-  // to actually move the robot.
-  moveit::planning_interface::MoveGroupInterface::Plan my_plan;
-
-  bool success = move_group.plan(my_plan);
-
-  ROS_INFO_NAMED("tutorial", "Visualizing plan 1 (pose goal) %s", success ? "" : "FAILED");
-
-  // Visualizing plans
-  // ^^^^^^^^^^^^^^^^^
-  // We can also visualize the plan as a line with markers in Rviz.
-  ROS_INFO_NAMED("tutorial", "Visualizing plan 1 as trajectory line");
-  visual_tools.publishAxisLabeled(target_pose1, "pose1");
-  visual_tools.publishText(text_pose, "Pose Goal", rvt::WHITE, rvt::XLARGE);
-  visual_tools.publishTrajectoryLine(my_plan.trajectory_, joint_model_group);
-  visual_tools.trigger();
-  visual_tools.prompt("next step");
 
 
-  // Moving to a pose goal
-  // ^^^^^^^^^^^^^^^^^^^^^
-  //
-  // Moving to a pose goal is similar to the step above
-  // except we now use the move() function. Note that
-  // the pose goal we had set earlier is still active
-  // and so the robot will try to move to that goal. We will
-  // not use that function in this tutorial since it is
-  // a blocking function and requires a controller to be active
-  // and report success on execution of a trajectory.
 
-  /* Uncomment below line when working with a real robot */
-   move_group.move();
-   ros::Duration(5.0).sleep();
 
-  // Planning to a joint-space goal
-  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  //
-  // Let's set a joint space goal and move towards it.  This will replace the
-  // pose target we set above.
-  //
-  // To start, we'll create an pointer that references the current robot's state.
-  // RobotState is the object that contains all the current position/velocity/acceleration data.
+  //////////////////////////////////////////////////////////////////////////////////////////////////////
+  //---------Loop of the MAIN PROGRAM------------------------------
+  //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
+  //////////////////////////////////////////////////////////////////////////////////////////////////////
+  //get input Pose using subscriber--which calls updatesPoseValues
+  //Only continue when a new pose is received
+  //////////////////////////////////////////////////////////////////////////////////////////////////////
+  geometry_msgs::Pose sensedPoseTip2;//Right Finger tip---Demo data
+  //sensedPoseTip2.header.frame_id = "m1n6a200_link_base";
+  sensedPoseTip2.position.x = 0.305735;
+  sensedPoseTip2.position.y = 0.196963;
+  sensedPoseTip2.position.z = 0.663391;
+  sensedPoseTip2.orientation.x = 0.623481;
+  sensedPoseTip2.orientation.y = 0.3335;
+  sensedPoseTip2.orientation.z = 0.623522;
+  sensedPoseTip2.orientation.w = 0.333571;
+
+  geometry_msgs::Pose sensedPoseLink6;//wrist --- Demo Data
+  //sensedPoseLink6.header.frame_id = "m1n6a200_link_base";
+  sensedPoseLink6.position.x = 0.308219;
+  sensedPoseLink6.position.y = 0.0494515;
+  sensedPoseLink6.position.z = 0.727438;
+  sensedPoseLink6.orientation.x = 0.615034;
+  sensedPoseLink6.orientation.y = 0.0;
+  sensedPoseLink6.orientation.z = 0.0;
+  sensedPoseLink6.orientation.w = 0.788501;
+
+  //////////////////////////////////////////////////////////////////////////////////////////////////////
+  //PLANNING
+  //////////////////////////////////////////////////////////////////////////////////////////////////////
+    move_group.setPoseTarget(sensedPoseTip2);
+    move_group.setPoseTarget(sensedPoseLink6);
+
+    moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+    bool success = move_group.plan(my_plan);
+    ROS_INFO("It took [%f] HEHEHHEHEHEHEHEHEHEHHHEHEHEHEH",my_plan.trajectory_.joint_trajectory.points[1].time_from_start);
+    move_group.move();
+    // Visualizing plans
+    // ^^^^^^^^^^^^^^^^^
+    // We can also visualize the plan as a line with markers in Rviz.
+    ROS_INFO_NAMED("tutorial", "Visualizing plan 1 as trajectory line");
+    visual_tools.publishAxisLabeled(poseTip2, "pose1");
+    visual_tools.publishText(text_pose, "Pose Goal", rvt::WHITE, rvt::XLARGE);
+    visual_tools.publishTrajectoryLine(my_plan.trajectory_, joint_model_group);
+    visual_tools.trigger();
+    visual_tools.prompt("next step");
+
+
+
+
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////
+    //Reset
+    //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  ros::spinOnce();
+  //Maybe add wait here...
+
+  //Loop back to start of main Program
 
   // END_TUTORIAL
-
   ros::shutdown();
+
   return 0;
 }
