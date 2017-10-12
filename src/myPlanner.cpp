@@ -20,6 +20,10 @@
 
 #include <moveit/planning_pipeline/planning_pipeline.h>
 
+#include <algorithm>
+#include <iterator>
+#include <string>
+
 geometry_msgs::PoseStamped poseTip2;//Right Finger tip
 geometry_msgs::PoseStamped poseLink6;//wrist
 geometry_msgs::PoseStamped poseTip1;//Left Finger tip
@@ -47,6 +51,14 @@ moveit_msgs::RobotTrajectory combineTrajectories(moveit_msgs::RobotTrajectory ma
   moveit_msgs::RobotTrajectory combineTrajectories = mainTrajectory;
   //Then add additional joint_names and their corresponding values(pos,vel,accel) to the combineTrajectories
   //Also beaware of the time from start for each point, it may be neseccary to take the largest one out of main and secondary
+//  for(auto jointName = secondaryTrajectory.joint_trajectory.joint_names.begin(); jointName !=secondaryTrajectory.joint_trajectory.joint_names.end(); ++jointName){
+//    ROS_INFO(*jointName);
+//  }
+  combineTrajectories.joint_trajectory.joint_names.push_back("m1n6a200_joint_finger_1");
+  for (int i =0; i < len(combineTrajectories.joint_trajectory.points);i++){
+    //push back the last value from secondary onto each points last postion,vel,accel //maybe change start form time
+  }
+
 
 }
 
@@ -299,8 +311,9 @@ int main(int argc, char** argv)
 
 
       moveit_msgs::ExecuteTrajectoryGoal goal2;
-      //goal2.trajectory = endResponse.trajectory;
-      goal2.trajectory = combineTrajectories(midResponse.trajectory, endResponse.trajectory);
+      goal2.trajectory = endResponse.trajectory;
+      combineTrajectories(midResponse.trajectory, endResponse.trajectory);
+      //goal2.trajectory = combineTrajectories(midResponse.trajectory, endResponse.trajectory);
       //goal.state = "hello";
       ac.sendGoalAndWait(goal2);
 
