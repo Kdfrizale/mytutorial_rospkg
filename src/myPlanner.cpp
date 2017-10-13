@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <iterator>
 #include <string>
+#include <std_msgs/Float64.h>
 
 geometry_msgs::PoseStamped poseTip2;//Right Finger tip
 geometry_msgs::PoseStamped poseLink6;//wrist
@@ -47,18 +48,30 @@ void updatePoseValues(const mytutorialPkg::HandStampedPose::ConstPtr& msg){
 }
 
 moveit_msgs::RobotTrajectory combineTrajectories(moveit_msgs::RobotTrajectory mainTrajectory, moveit_msgs::RobotTrajectory secondaryTrajectory){
-  //Set to the main trajectory
   moveit_msgs::RobotTrajectory combineTrajectories = mainTrajectory;
   //Then add additional joint_names and their corresponding values(pos,vel,accel) to the combineTrajectories
   //Also beaware of the time from start for each point, it may be neseccary to take the largest one out of main and secondary
-//  for(auto jointName = secondaryTrajectory.joint_trajectory.joint_names.begin(); jointName !=secondaryTrajectory.joint_trajectory.joint_names.end(); ++jointName){
-//    ROS_INFO(*jointName);
-//  }
   combineTrajectories.joint_trajectory.joint_names.push_back("m1n6a200_joint_finger_1");
-  for (int i =0; i < len(combineTrajectories.joint_trajectory.points);i++){
+  ROS_INFO("ABOUT TO COMBINE trajectories");
+  ROS_INFO("how long I was going forz: [%zd]",combineTrajectories.joint_trajectory.points.size());
+  ROS_INFO("how long I was going foru: [%ud]",combineTrajectories.joint_trajectory.points.size());
+  ROS_INFO("how long I was going ford: [%d]",combineTrajectories.joint_trajectory.points.size());
+  int number = combineTrajectories.joint_trajectory.points.size();
+  ROS_INFO("hnumberord: [%d]",number);
+  for (int i =0; i < combineTrajectories.joint_trajectory.points.size();i++){
+    ROS_INFO("IM in a loop for combing...");
+    auto positionValue = secondaryTrajectory.joint_trajectory.points[i].positions.back();
+    auto  velocityValue = secondaryTrajectory.joint_trajectory.points[i].velocities.back();
+    auto  accelValue = secondaryTrajectory.joint_trajectory.points[i].accelerations.back();
+
     //push back the last value from secondary onto each points last postion,vel,accel //maybe change start form time
+    combineTrajectories.joint_trajectory.points[i].positions.push_back(positionValue);
+    combineTrajectories.joint_trajectory.points[i].velocities.push_back(velocityValue);
+    combineTrajectories.joint_trajectory.points[i].accelerations.push_back(accelValue);
+
   }
 
+  return combineTrajectories;
 
 }
 
@@ -174,8 +187,8 @@ int main(int argc, char** argv)
       planning_interface::MotionPlanResponse res2;
 
 
-      //req.group_name = "chainArm";
-      req.group_name = "arm_joints_right";
+      req.group_name = "chainArm";
+      //req.group_name = "arm_joints_right";
       moveit_msgs::Constraints pose_goal_tip_2 = kinematic_constraints::constructGoalConstraints("m1n6a200_link_finger_tip_2", poseTip2, tolerance_pose, tolerance_angle);
       req.goal_constraints.push_back(pose_goal_tip_2);
 
@@ -232,8 +245,8 @@ int main(int argc, char** argv)
       const robot_state::JointModelGroup* joint_model_group = robot_state.getJointModelGroup("chainArm");
       robot_state.setJointGroupPositions(joint_model_group, midResponse.trajectory.joint_trajectory.points.back().positions);
 
-      //req2.group_name = "chainArmLeft";
-      req2.group_name = "arm_joints_left";
+      req2.group_name = "chainArmLeft";
+      //req2.group_name = "arm_joints_left";
       moveit_msgs::Constraints pose_goal_tip_1 = kinematic_constraints::constructGoalConstraints("m1n6a200_link_finger_tip_1", poseTip1, tolerance_pose, tolerance_angle);
       req2.goal_constraints.push_back(pose_goal_tip_1);
       req2.goal_constraints.push_back(pose_goal_link6);
@@ -311,9 +324,9 @@ int main(int argc, char** argv)
 
 
       moveit_msgs::ExecuteTrajectoryGoal goal2;
-      goal2.trajectory = endResponse.trajectory;
-      combineTrajectories(midResponse.trajectory, endResponse.trajectory);
-      //goal2.trajectory = combineTrajectories(midResponse.trajectory, endResponse.trajectory);
+      //goal2.trajectory = endResponse.trajectory;
+      //combineTrajectories(midResponse.trajectory, endResponse.trajectory);
+      goal2.trajectory = combineTrajectories(midResponse.trajectory, endResponse.trajectory);
       //goal.state = "hello";
       ac.sendGoalAndWait(goal2);
 
