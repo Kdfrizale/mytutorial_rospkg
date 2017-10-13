@@ -25,6 +25,8 @@
 #include <string>
 #include <std_msgs/Float64.h>
 
+
+
 geometry_msgs::PoseStamped poseTip2;//Right Finger tip
 geometry_msgs::PoseStamped poseLink6;//wrist
 geometry_msgs::PoseStamped poseTip1;//Left Finger tip
@@ -54,7 +56,15 @@ moveit_msgs::RobotTrajectory combineTrajectories(const moveit_msgs::RobotTraject
   combineTrajectories.joint_trajectory.joint_names.push_back("m1n6a200_joint_finger_1");
   ROS_INFO("ABOUT TO COMBINE trajectories");
   ROS_INFO("There are [%zd] points to go through",combineTrajectories.joint_trajectory.points.size());
-  for (int i =0; i < combineTrajectories.joint_trajectory.points.size();i++){
+  ROS_INFO("There are [%zd] points to go through",secondaryTrajectory.joint_trajectory.points.size());
+
+  int smallestSize = combineTrajectories.joint_trajectory.points.size();
+  if (secondaryTrajectory.joint_trajectory.points.size() < smallestSize){
+    smallestSize = secondaryTrajectory.joint_trajectory.points.size();
+  }
+
+
+  for (int i =0; i < smallestSize;i++){
     ROS_INFO("IM in a loop for combing...");
     auto positionValue = secondaryTrajectory.joint_trajectory.points[i].positions.back();
     auto  velocityValue = secondaryTrajectory.joint_trajectory.points[i].velocities.back();
@@ -65,15 +75,15 @@ moveit_msgs::RobotTrajectory combineTrajectories(const moveit_msgs::RobotTraject
     combineTrajectories.joint_trajectory.points[i].velocities.push_back(velocityValue);
     combineTrajectories.joint_trajectory.points[i].accelerations.push_back(accelValue);
 
-  /*  ROS_INFO("combines orginal starttime: [%f]", combineTrajectories.joint_trajectory.points[i].time_from_start.toSec());
+    ROS_INFO("combines orginal starttime: [%f]", combineTrajectories.joint_trajectory.points[i].time_from_start.toSec());
     ROS_INFO("secondary orginal starttime: [%f]", secondaryTrajectory.joint_trajectory.points[i].time_from_start.toSec());
 
 
     if (combineTrajectories.joint_trajectory.points[i].time_from_start < secondaryTrajectory.joint_trajectory.points[i].time_from_start){
-      combineTrajectories.joint_trajectory.points[i].time_from_start = secondaryTrajectory.joint_trajectory.points[i].time_from_start;
+      //combineTrajectories.joint_trajectory.points[i].time_from_start = secondaryTrajectory.joint_trajectory.points[i].time_from_start;
     }
     ROS_INFO("combines final starttime: [%f]", combineTrajectories.joint_trajectory.points[i].time_from_start.toSec());
-*/
+
   }
 
   return combineTrajectories;
@@ -210,7 +220,7 @@ int main(int argc, char** argv)
       if (res.error_code_.val != res.error_code_.SUCCESS){
         //  ROS_ERROR("Could not compute plan successfully");
         ROS_INFO("COULD NOT PLAN... WAITING ...");
-        sleep_time.sleep();
+        //sleep_time.sleep();
         continue;
       }
 
@@ -265,7 +275,7 @@ int main(int argc, char** argv)
       if (res2.error_code_.val != res2.error_code_.SUCCESS){
         //ROS_ERROR("Could not compute plan successfully");
         ROS_INFO("COULD NOT PLAN... WAITING ...");
-        sleep_time.sleep();
+        //sleep_time.sleep();
         continue;
 
       }
@@ -276,12 +286,18 @@ int main(int argc, char** argv)
       moveit_msgs::MotionPlanResponse endResponse;
       res2.getMessage(endResponse);
 
-      robot_state = planning_scene->getCurrentStateNonConst();
+    /*  robot_state = planning_scene->getCurrentStateNonConst();
       planning_scene->setCurrentState(endResponse.trajectory_start);
       joint_model_group = robot_state.getJointModelGroup("chainArmLeft");
       robot_state.setJointGroupPositions(joint_model_group, endResponse.trajectory.joint_trajectory.points.back().positions);
+*/
+    //I DONT WANT TO UPDATE WHOLE JOINT MODEL, JUST THE Finger
+      robot_state = planning_scene->getCurrentStateNonConst();
+      planning_scene->setCurrentState(endResponse.trajectory_start);
+      joint_model_group = robot_state.getJointModelGroup("chainArmLeft");
 
-
+      ROS_INFO("the number is : [%f]",endResponse.trajectory.joint_trajectory.points.back().positions.back() );
+      //robot_state.setJointPositions("m1n6a200_joint_finger_1", 0.0);
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     //show the result in Rviz
@@ -329,12 +345,29 @@ int main(int argc, char** argv)
 
 
       moveit_msgs::ExecuteTrajectoryGoal goal2;
+
+
       //goal2.trajectory = endResponse.trajectory;
       //combineTrajectories(midResponse.trajectory, endResponse.trajectory);
       goal2.trajectory = combineTrajectories(midResponse.trajectory, endResponse.trajectory);
       waitForPlan_time.sleep();
+
+
+      robot_state = planning_scene->getCurrentStateNonConst();
+      planning_scene->setCurrentState(endResponse.trajectory_start);
+      joint_model_group = robot_state.getJointModelGroup("chainArmLeft");
+      robot_state.setJointGroupPositions(joint_model_group, goal2.trajectory.joint_trajectory.points.back().positions);
+
+
+
+
+
       //goal.state = "hello";
-      ac.sendGoalAndWait(goal2);
+      actionlib::SimpleClientGoalState waitState = ac.sendGoalAndWait(goal2);
+      if (waitState.toString().compare("ABORTED") == 0){
+          ROS_INFO("it aborted, now sleeping for atime");
+          sleep_time.sleep();
+      }
 
       bool finished_before_timeout2 = ac.waitForResult(ros::Duration(30.0));
       if (finished_before_timeout2){
@@ -344,6 +377,8 @@ int main(int argc, char** argv)
       else{
         ROS_INFO("Action did not finish before the time out.");
       }
+
+
       duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
       ROS_INFO("It took [%f] seconds to get past the second move", duration);
 
