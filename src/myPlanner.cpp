@@ -25,6 +25,7 @@
 #include <string>
 #include <std_msgs/Float64.h>
 
+/////////////////////////////////////////GLOBALS//////////////////////////////////////////////
 
 
 geometry_msgs::PoseStamped poseTip2;//Right Finger tip
@@ -37,7 +38,8 @@ bool messageReceived = false;
 std::vector<double> tolerance_pose(3, 0.01);
 std::vector<double> tolerance_angle(3, 0.01);//0.01 is normal
 
-
+/////////////////////////////////////FUNCTIONS/////////////////////////////////////////////
+//Sets the desired poseTargets to the received input poses
 void updatePoseValues(const mytutorialPkg::HandStampedPose::ConstPtr& msg){
   ROS_INFO_THROTTLE(1,"I received a message.. now processing...");
   poseTip2 = msg->poseTip2;
@@ -49,6 +51,7 @@ void updatePoseValues(const mytutorialPkg::HandStampedPose::ConstPtr& msg){
   messageReceived = true;
 }
 
+//Combines two trajectories so that the action server can have just one move for two plans
 moveit_msgs::RobotTrajectory combineTrajectories(const moveit_msgs::RobotTrajectory mainTrajectory, const moveit_msgs::RobotTrajectory secondaryTrajectory){
   moveit_msgs::RobotTrajectory combineTrajectories = mainTrajectory;
   //Then add additional joint_names and their corresponding values(pos,vel,accel) to the combineTrajectories
@@ -62,7 +65,6 @@ moveit_msgs::RobotTrajectory combineTrajectories(const moveit_msgs::RobotTraject
   if (secondaryTrajectory.joint_trajectory.points.size() < smallestSize){
     smallestSize = secondaryTrajectory.joint_trajectory.points.size();
   }
-
 
   for (int i =0; i < smallestSize;i++){
     ROS_INFO("IM in a loop for combing...");
@@ -83,86 +85,26 @@ moveit_msgs::RobotTrajectory combineTrajectories(const moveit_msgs::RobotTraject
       combineTrajectories.joint_trajectory.points[i].time_from_start = secondaryTrajectory.joint_trajectory.points[i].time_from_start;
     }
     ROS_INFO("combines final starttime: [%f]", combineTrajectories.joint_trajectory.points[i].time_from_start.toSec());
-
   }
-
   return combineTrajectories;
-
 }
+
+//////////////////////////////////////////////////////////////////MAIN//////////////////////////////////////////////////////////////////////
 
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "move_group_tutorial");
+  ros::init(argc, argv, "myPlannerStart");
   ros::AsyncSpinner spinner(1);
   spinner.start();
   ros::NodeHandle node_handle("~");
 
-  // BEGIN_TUTORIAL
-  // Start
-  // ^^^^^
-  // Setting up to start using a planner is pretty easy. Planners are
-  // setup as plugins in MoveIt! and you can use the ROS pluginlib
-  // interface to load any planner that you want to use. Before we
-  // can load the planner, we need two objects, a RobotModel
-  // and a PlanningScene.
-  // We will start by instantiating a
-  // `RobotModelLoader`_
-  // object, which will look up
-  // the robot description on the ROS parameter server and construct a
-  // :moveit_core:`RobotModel` for us to use.
-  //
-  // .. _RobotModelLoader: http://docs.ros.org/indigo/api/moveit_ros_planning/html/classrobot__model__loader_1_1RobotModelLoader.html
   robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
   robot_model::RobotModelPtr robot_model = robot_model_loader.getModel();
 
-  // Using the :moveit_core:`RobotModel`, we can construct a
-  // :planning_scene:`PlanningScene` that maintains the state of
-  // the world (including the robot).
   planning_scene::PlanningScenePtr planning_scene(new planning_scene::PlanningScene(robot_model));
   planning_scene::PlanningScenePtr planning_scene2(new planning_scene::PlanningScene(robot_model));
 
-
   planning_pipeline::PlanningPipelinePtr planning_pipeline(new planning_pipeline::PlanningPipeline(robot_model, node_handle, "planning_plugin", "request_adapters"));
-
-  // We will now construct a loader to load a planner, by name.
-  // Note that we are using the ROS pluginlib library here.
-/*  boost::scoped_ptr<pluginlib::ClassLoader<planning_interface::PlannerManager>> planner_plugin_loader;
-  planning_interface::PlannerManagerPtr planner_instance;
-  std::string planner_plugin_name;
-
-  planning_pipeline::PlanningPipelinePtr planning_pipeline(new planning_pipeline::PlanningPipeline(robot_model, node_handle, "planning_plugin", "request_adapters"));
-
-  // We will get the name of planning plugin we want to load
-  // from the ROS param server, and then load the planner
-  // making sure to catch all exceptions.
-  if (!node_handle.getParam("planning_plugin", planner_plugin_name))
-    ROS_FATAL_STREAM("Could not find planner plugin name");
-  try
-  {
-    planner_plugin_loader.reset(new pluginlib::ClassLoader<planning_interface::PlannerManager>(
-        "moveit_core", "planning_interface::PlannerManager"));
-  }
-  catch (pluginlib::PluginlibException& ex)
-  {
-    ROS_FATAL_STREAM("Exception while creating planning plugin loader " << ex.what());
-  }
-  try
-  {
-    planner_instance.reset(planner_plugin_loader->createUnmanagedInstance(planner_plugin_name));
-    if (!planner_instance->initialize(robot_model, node_handle.getNamespace()))
-      ROS_FATAL_STREAM("Could not initialize planner instance");
-    ROS_INFO_STREAM("Using planning interface '" << planner_instance->getDescription() << "'");
-  }
-  catch (pluginlib::PluginlibException& ex)
-  {
-    const std::vector<std::string>& classes = planner_plugin_loader->getDeclaredClasses();
-    std::stringstream ss;
-    for (std::size_t i = 0; i < classes.size(); ++i)
-      ss << classes[i] << " ";
-    ROS_ERROR_STREAM("Exception while loading planner '" << planner_plugin_name << "': " << ex.what() << std::endl
-                                                         << "Available plugins: " << ss.str());
-  }
-*/
 
   /* Sleep a little to allow time to startup rviz, etc. */
   ros::WallDuration sleep_time(15.0);
@@ -174,56 +116,45 @@ int main(int argc, char** argv)
   //////////////////////////////////////////////////////////////////////////////////////////////////////
   while (ros::ok()){
 
-  //////////////////////////////////////////////////////////////////////////////////////////////////////
-  //get input Pose using subscriber--which calls updatesPoseValues
-  //Only continue when a new pose is received
-  //////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////
+    //get input Pose using subscriber--which calls updatesPoseValues
+    //Only continue when a new pose is received
+    //////////////////////////////////////////////////////////////////////////////////////////////////////
     ros::Subscriber sub = node_handle.subscribe("/handPoseTopic",10,updatePoseValues);
-    if(messageReceived){
-      ROS_INFO_THROTTLE(1,"Message was Received!");
-    }
-    else{
+    if(!messageReceived){
       ROS_INFO_THROTTLE(1,"Message not Received...");
+
     }
-  //////////////////////////////////////////////////////////////////////////////////////////////////////
-  //Then run the standard planning technique
-  //////////////////////////////////////////////////////////////////////////////////////////////////////
-    if(messageReceived){
+    else{//messageReceived so start planning
+      ROS_INFO_THROTTLE(1,"Message was Received!");
+
       std::clock_t start;
       double duration;
       start = std::clock();
 
-  //////////////////////////////////////////////////////////////////////////////////////////////////////
-  //PLANNING
-  //////////////////////////////////////////////////////////////////////////////////////////////////////
+      //////////////////////////////////////////////////////////////////////////////////////////////////////
+      //PLANNING
+      //////////////////////////////////////////////////////////////////////////////////////////////////////
       planning_interface::MotionPlanRequest req;
       planning_interface::MotionPlanResponse res;
       planning_interface::MotionPlanRequest req2;
       planning_interface::MotionPlanResponse res2;
 
-
       req.group_name = "chainArm";
-      //req.group_name = "arm_joints_right";
       moveit_msgs::Constraints pose_goal_tip_2 = kinematic_constraints::constructGoalConstraints("m1n6a200_link_finger_tip_2", poseTip2, tolerance_pose, tolerance_angle);
       req.goal_constraints.push_back(pose_goal_tip_2);
 
       moveit_msgs::Constraints pose_goal_link6 = kinematic_constraints::constructGoalConstraints("m1n6a200_link_6", poseLink6, tolerance_pose, tolerance_angle);
       req.goal_constraints.push_back(pose_goal_link6);
 
-      //planning_interface::PlanningContextPtr context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
-
       ROS_INFO("about to start planning");
-      //context->solve(res);
       planning_pipeline->generatePlan(planning_scene,req,res);
 
-
       if (res.error_code_.val != res.error_code_.SUCCESS){
-        //  ROS_ERROR("Could not compute plan successfully");
-        ROS_INFO("COULD NOT PLAN... WAITING ...");
+        ROS_ERROR("Could not compute plan successfully");
         //sleep_time.sleep();
-        continue;
+        continue;//Go back and get new poseTarget
       }
-
 
       //-------------Robot has planned to the first motion------------------------------------
       moveit_msgs::MotionPlanResponse midResponse;
@@ -232,29 +163,6 @@ int main(int argc, char** argv)
       duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
       ROS_INFO("It took [%f] seconds to get past the first plan", duration);
 
-  /*  //  ROS_INFO("It took [%f] HEHEHHEHEHEHEHEHEHEHHHEHEHEHEH",midResponse.trajectory.joint_trajectory.points[1].time_from_start);
-      //ROS_INFO("It took [%f] seconds to plan midResponse", midResponse.planning_time);
-      ROS_INFO("ATTEMPTING TO SEND MOVE COMMANDS...");
-      actionlib::SimpleActionClient<moveit_msgs::ExecuteTrajectoryAction> ac1("execute_trajectory",false);
-      ROS_INFO("Waiting for action server to start.");
-      ac1.waitForServer();
-
-      moveit_msgs::ExecuteTrajectoryGoal goal;
-      goal.trajectory = midResponse.trajectory;
-      ac1.sendGoalAndWait(goal);
-
-      bool finished_before_timeout = ac1.waitForResult(ros::Duration(30.0));
-      if (finished_before_timeout){
-        actionlib::SimpleClientGoalState state = ac1.getState();
-        ROS_INFO("Action finished: %s",state.toString().c_str());
-      }
-      else{
-        ROS_INFO("Action did not finish before the time out.");
-      }
-
-      duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
-      ROS_INFO("It took [%f] seconds to get past the first move", duration);
-*/
       /*//Update the robot model in planning space to the end of plan1's motion
       robot_state::RobotState& robot_state = planning_scene->getCurrentStateNonConst();
       planning_scene->setCurrentState(midResponse.trajectory_start);
@@ -262,23 +170,17 @@ int main(int argc, char** argv)
       robot_state.setJointGroupPositions(joint_model_group, midResponse.trajectory.joint_trajectory.points.back().positions);
 */
       req2.group_name = "chainArmLeft";
-      //req2.group_name = "arm_joints_left";
       moveit_msgs::Constraints pose_goal_tip_1 = kinematic_constraints::constructGoalConstraints("m1n6a200_link_finger_tip_1", poseTip1, tolerance_pose, tolerance_angle);
       req2.goal_constraints.push_back(pose_goal_tip_1);
       req2.goal_constraints.push_back(pose_goal_link6);
 
-      //planning_interface::PlanningContextPtr context2 = planner_instance->getPlanningContext(planning_scene, req2, res2.error_code_);
-
       ROS_INFO("about to start planning2");
-      //context2->solve(res2);
       planning_pipeline->generatePlan(planning_scene,req2,res2);
 
       if (res2.error_code_.val != res2.error_code_.SUCCESS){
-        //ROS_ERROR("Could not compute plan successfully");
-        ROS_INFO("COULD NOT PLAN... WAITING ...");
+        ROS_ERROR("Could not compute plan successfully");
         //sleep_time.sleep();
-        continue;
-
+        continue;//Go Back and get new Pose Target
       }
 
       duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
@@ -292,78 +194,36 @@ int main(int argc, char** argv)
       joint_model_group = robot_state.getJointModelGroup("chainArmLeft");
       robot_state.setJointGroupPositions(joint_model_group, endResponse.trajectory.joint_trajectory.points.back().positions);
 */
-      //UPdate from the first plan (complete)
+      //////////////////////////////////////////////////////////////////////////////////////////////////////
+      //Update the Planning Scene Robot Model to show where the plans ended
+      //////////////////////////////////////////////////////////////////////////////////////////////////////
+      //Update the whole robot from first plan (main pose)
       robot_state::RobotState& robot_state = planning_scene->getCurrentStateNonConst();
       planning_scene->setCurrentState(midResponse.trajectory_start);
       const robot_state::JointModelGroup* joint_model_group = robot_state.getJointModelGroup("chainArm");
       robot_state.setJointGroupPositions(joint_model_group, midResponse.trajectory.joint_trajectory.points.back().positions);
 
-    //I DONT WANT TO UPDATE WHOLE JOINT MODEL, JUST THE Finger for the second plan
-    //  robot_state = planning_scene->getCurrentStateNonConst();
-      //planning_scene->setCurrentState(endResponse.trajectory_start);
-      //joint_model_group = robot_state.getJointModelGroup("chainArmLeft");
-
+      //Then update just the finger from the second plan
       ROS_INFO("the number is : [%f]",endResponse.trajectory.joint_trajectory.points.back().positions.back() );
       const double fingerPosition = endResponse.trajectory.joint_trajectory.points.back().positions.back();
       const std::string jointFingerName = "m1n6a200_joint_finger_1";
       const double* fingerPositionPointer= &fingerPosition;
       robot_state.setJointPositions(jointFingerName, fingerPositionPointer );
 
-    //////////////////////////////////////////////////////////////////////////////////////////////////////
-    //show the result in Rviz
-    //////////////////////////////////////////////////////////////////////////////////////////////////////
-      ros::Publisher display_publisher = node_handle.advertise<moveit_msgs::DisplayTrajectory>("/move_group/display_planned_path", 1, true);
-      moveit_msgs::DisplayTrajectory display_trajectory;
 
-      ROS_INFO("Visualizing the trajectory");
-      moveit_msgs::MotionPlanResponse response;
-
-      res.getMessage(response);//Get the first motion plan
-      display_trajectory.trajectory_start = response.trajectory_start;
-      display_trajectory.trajectory.push_back(response.trajectory);
-
-      res2.getMessage(response);//Get the second motion plan
-      display_trajectory.trajectory_start = response.trajectory_start;
-      display_trajectory.trajectory.push_back(response.trajectory);
-      display_publisher.publish(display_trajectory);
-      waitForPlan_time.sleep();
-
-      duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
-      ROS_INFO("It took [%f] seconds to get past the rviz display", duration);
-
-    //////////////////////////////////////////////////////////////////////////////////////////////////////
-    //Move the physical robot to the planned coordinates
-    //////////////////////////////////////////////////////////////////////////////////////////////////////
+      //////////////////////////////////////////////////////////////////////////////////////////////////////
+      //Move the physical robot to the planned coordinates
+      //////////////////////////////////////////////////////////////////////////////////////////////////////
       ROS_INFO("ATTEMPTING TO SEND MOVE COMMANDS...");
       actionlib::SimpleActionClient<moveit_msgs::ExecuteTrajectoryAction> ac("execute_trajectory",false);
       ROS_INFO("Waiting for action server to start.");
       ac.waitForServer();
 
-    /*  moveit_msgs::ExecuteTrajectoryGoal goal;
-      goal.trajectory = midResponse.trajectory;
-      ac.sendGoal(goal);
+      moveit_msgs::ExecuteTrajectoryGoal goal;
+      goal.trajectory = combineTrajectories(midResponse.trajectory, endResponse.trajectory);
+      //waitForPlan_time.sleep();
 
-      bool finished_before_timeout = ac.waitForResult(ros::Duration(30.0));
-      if (finished_before_timeout){
-        actionlib::SimpleClientGoalState state = ac.getState();
-        ROS_INFO("Action finished: %s",state.toString().c_str());
-      }
-      else{
-        ROS_INFO("Action did not finish before the time out.");
-      }
-*/
-
-
-      moveit_msgs::ExecuteTrajectoryGoal goal2;
-
-
-      //goal2.trajectory = endResponse.trajectory;
-      //combineTrajectories(midResponse.trajectory, endResponse.trajectory);
-      goal2.trajectory = combineTrajectories(midResponse.trajectory, endResponse.trajectory);
-      waitForPlan_time.sleep();
-
-
-      actionlib::SimpleClientGoalState waitState = ac.sendGoalAndWait(goal2);
+      actionlib::SimpleClientGoalState waitState = ac.sendGoalAndWait(goal);
       if (waitState.toString().compare("ABORTED") == 0){
           ROS_INFO("it aborted, now sleeping for atime");
           sleep_time.sleep();
@@ -378,30 +238,51 @@ int main(int argc, char** argv)
         ROS_INFO("Action did not finish before the time out.");
       }
 
-
       duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
       ROS_INFO("It took [%f] seconds to get past the second move", duration);
 
+      //////////////////////////////////////////////////////////////////////////////////////////////////////
+      //show the result in Rviz
+      //////////////////////////////////////////////////////////////////////////////////////////////////////
+      ros::Publisher display_publisher = node_handle.advertise<moveit_msgs::DisplayTrajectory>("/move_group/display_planned_path", 1, true);
+      moveit_msgs::DisplayTrajectory display_trajectory;
 
-    //////////////////////////////////////////////////////////////////////////////////////////////////////
-    //Reset
-    //////////////////////////////////////////////////////////////////////////////////////////////////////
+      ROS_INFO("Visualizing the trajectory");
+      //moveit_msgs::MotionPlanResponse response;
+
+      //res.getMessage(response);//Get the first motion plan
+      display_trajectory.trajectory_start = midResponse.trajectory_start;
+      display_trajectory.trajectory.push_back(goal.trajectory);
+
+      /*
+      res2.getMessage(response);//Get the second motion plan
+      display_trajectory.trajectory_start = response.trajectory_start;
+      display_trajectory.trajectory.push_back(response.trajectory);
+      */
+      display_publisher.publish(display_trajectory);
+      waitForPlan_time.sleep();
+
+      duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
+      ROS_INFO("It took [%f] seconds to get past the rviz display", duration);
+
+
+      //////////////////////////////////////////////////////////////////////////////////////////////////////
+      //Reset
+      //////////////////////////////////////////////////////////////////////////////////////////////////////
       messageReceived = false;
 
       duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
       ROS_INFO("It took [%f] seconds for this cycle", duration);
   }
   ros::spinOnce();
+
   //Maybe add wait here...
-
   waitForPlan_time.sleep();
-}
-  //Loop back to start of main Program
+}//Loop back to start of main Program
 
-  // END_TUTORIAL
+  //Broke out of while
   sleep_time.sleep();
   ROS_INFO("Done");
-  //planner_instance.reset();
 
   return 0;
 }
