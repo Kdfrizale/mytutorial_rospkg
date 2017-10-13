@@ -80,7 +80,7 @@ moveit_msgs::RobotTrajectory combineTrajectories(const moveit_msgs::RobotTraject
 
 
     if (combineTrajectories.joint_trajectory.points[i].time_from_start < secondaryTrajectory.joint_trajectory.points[i].time_from_start){
-      //combineTrajectories.joint_trajectory.points[i].time_from_start = secondaryTrajectory.joint_trajectory.points[i].time_from_start;
+      combineTrajectories.joint_trajectory.points[i].time_from_start = secondaryTrajectory.joint_trajectory.points[i].time_from_start;
     }
     ROS_INFO("combines final starttime: [%f]", combineTrajectories.joint_trajectory.points[i].time_from_start.toSec());
 
@@ -255,11 +255,12 @@ int main(int argc, char** argv)
       duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
       ROS_INFO("It took [%f] seconds to get past the first move", duration);
 */
+      /*//Update the robot model in planning space to the end of plan1's motion
       robot_state::RobotState& robot_state = planning_scene->getCurrentStateNonConst();
       planning_scene->setCurrentState(midResponse.trajectory_start);
       const robot_state::JointModelGroup* joint_model_group = robot_state.getJointModelGroup("chainArm");
       robot_state.setJointGroupPositions(joint_model_group, midResponse.trajectory.joint_trajectory.points.back().positions);
-
+*/
       req2.group_name = "chainArmLeft";
       //req2.group_name = "arm_joints_left";
       moveit_msgs::Constraints pose_goal_tip_1 = kinematic_constraints::constructGoalConstraints("m1n6a200_link_finger_tip_1", poseTip1, tolerance_pose, tolerance_angle);
@@ -291,13 +292,22 @@ int main(int argc, char** argv)
       joint_model_group = robot_state.getJointModelGroup("chainArmLeft");
       robot_state.setJointGroupPositions(joint_model_group, endResponse.trajectory.joint_trajectory.points.back().positions);
 */
-    //I DONT WANT TO UPDATE WHOLE JOINT MODEL, JUST THE Finger
-      robot_state = planning_scene->getCurrentStateNonConst();
-      planning_scene->setCurrentState(endResponse.trajectory_start);
-      joint_model_group = robot_state.getJointModelGroup("chainArmLeft");
+      //UPdate from the first plan (complete)
+      robot_state::RobotState& robot_state = planning_scene->getCurrentStateNonConst();
+      planning_scene->setCurrentState(midResponse.trajectory_start);
+      const robot_state::JointModelGroup* joint_model_group = robot_state.getJointModelGroup("chainArm");
+      robot_state.setJointGroupPositions(joint_model_group, midResponse.trajectory.joint_trajectory.points.back().positions);
+
+    //I DONT WANT TO UPDATE WHOLE JOINT MODEL, JUST THE Finger for the second plan
+    //  robot_state = planning_scene->getCurrentStateNonConst();
+      //planning_scene->setCurrentState(endResponse.trajectory_start);
+      //joint_model_group = robot_state.getJointModelGroup("chainArmLeft");
 
       ROS_INFO("the number is : [%f]",endResponse.trajectory.joint_trajectory.points.back().positions.back() );
-      //robot_state.setJointPositions("m1n6a200_joint_finger_1", 0.0);
+      const double fingerPosition = endResponse.trajectory.joint_trajectory.points.back().positions.back();
+      const std::string jointFingerName = "m1n6a200_joint_finger_1";
+      const double* fingerPositionPointer= &fingerPosition;
+      robot_state.setJointPositions(jointFingerName, fingerPositionPointer );
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     //show the result in Rviz
@@ -353,16 +363,6 @@ int main(int argc, char** argv)
       waitForPlan_time.sleep();
 
 
-      robot_state = planning_scene->getCurrentStateNonConst();
-      planning_scene->setCurrentState(endResponse.trajectory_start);
-      joint_model_group = robot_state.getJointModelGroup("chainArmLeft");
-      robot_state.setJointGroupPositions(joint_model_group, goal2.trajectory.joint_trajectory.points.back().positions);
-
-
-
-
-
-      //goal.state = "hello";
       actionlib::SimpleClientGoalState waitState = ac.sendGoalAndWait(goal2);
       if (waitState.toString().compare("ABORTED") == 0){
           ROS_INFO("it aborted, now sleeping for atime");
