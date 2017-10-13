@@ -47,17 +47,13 @@ void updatePoseValues(const mytutorialPkg::HandStampedPose::ConstPtr& msg){
   messageReceived = true;
 }
 
-moveit_msgs::RobotTrajectory combineTrajectories(moveit_msgs::RobotTrajectory mainTrajectory, moveit_msgs::RobotTrajectory secondaryTrajectory){
+moveit_msgs::RobotTrajectory combineTrajectories(const moveit_msgs::RobotTrajectory mainTrajectory, const moveit_msgs::RobotTrajectory secondaryTrajectory){
   moveit_msgs::RobotTrajectory combineTrajectories = mainTrajectory;
   //Then add additional joint_names and their corresponding values(pos,vel,accel) to the combineTrajectories
   //Also beaware of the time from start for each point, it may be neseccary to take the largest one out of main and secondary
   combineTrajectories.joint_trajectory.joint_names.push_back("m1n6a200_joint_finger_1");
   ROS_INFO("ABOUT TO COMBINE trajectories");
-  ROS_INFO("how long I was going forz: [%zd]",combineTrajectories.joint_trajectory.points.size());
-  ROS_INFO("how long I was going foru: [%ud]",combineTrajectories.joint_trajectory.points.size());
-  ROS_INFO("how long I was going ford: [%d]",combineTrajectories.joint_trajectory.points.size());
-  int number = combineTrajectories.joint_trajectory.points.size();
-  ROS_INFO("hnumberord: [%d]",number);
+  ROS_INFO("There are [%zd] points to go through",combineTrajectories.joint_trajectory.points.size());
   for (int i =0; i < combineTrajectories.joint_trajectory.points.size();i++){
     ROS_INFO("IM in a loop for combing...");
     auto positionValue = secondaryTrajectory.joint_trajectory.points[i].positions.back();
@@ -69,6 +65,15 @@ moveit_msgs::RobotTrajectory combineTrajectories(moveit_msgs::RobotTrajectory ma
     combineTrajectories.joint_trajectory.points[i].velocities.push_back(velocityValue);
     combineTrajectories.joint_trajectory.points[i].accelerations.push_back(accelValue);
 
+  /*  ROS_INFO("combines orginal starttime: [%f]", combineTrajectories.joint_trajectory.points[i].time_from_start.toSec());
+    ROS_INFO("secondary orginal starttime: [%f]", secondaryTrajectory.joint_trajectory.points[i].time_from_start.toSec());
+
+
+    if (combineTrajectories.joint_trajectory.points[i].time_from_start < secondaryTrajectory.joint_trajectory.points[i].time_from_start){
+      combineTrajectories.joint_trajectory.points[i].time_from_start = secondaryTrajectory.joint_trajectory.points[i].time_from_start;
+    }
+    ROS_INFO("combines final starttime: [%f]", combineTrajectories.joint_trajectory.points[i].time_from_start.toSec());
+*/
   }
 
   return combineTrajectories;
@@ -203,10 +208,10 @@ int main(int argc, char** argv)
 
 
       if (res.error_code_.val != res.error_code_.SUCCESS){
-      //  ROS_ERROR("Could not compute plan successfully");
-      ROS_INFO("COULD NOT PLAN... WAITING ...");
-      sleep_time.sleep();
-      continue;
+        //  ROS_ERROR("Could not compute plan successfully");
+        ROS_INFO("COULD NOT PLAN... WAITING ...");
+        sleep_time.sleep();
+        continue;
       }
 
 
@@ -327,6 +332,7 @@ int main(int argc, char** argv)
       //goal2.trajectory = endResponse.trajectory;
       //combineTrajectories(midResponse.trajectory, endResponse.trajectory);
       goal2.trajectory = combineTrajectories(midResponse.trajectory, endResponse.trajectory);
+      waitForPlan_time.sleep();
       //goal.state = "hello";
       ac.sendGoalAndWait(goal2);
 
