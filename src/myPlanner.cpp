@@ -73,6 +73,7 @@ moveit_msgs::RobotTrajectory combineTrajectories(const moveit_msgs::RobotTraject
     auto  accelValue = secondaryTrajectory.joint_trajectory.points[i].accelerations.back();
 
     //push back the last value from secondary onto each points last postion,vel,accel //maybe change start form time
+    ROS_INFO("value of finger 1 joint posiiton pushed back: [%f]",positionValue);
     combineTrajectories.joint_trajectory.points[i].positions.push_back(positionValue);
     combineTrajectories.joint_trajectory.points[i].velocities.push_back(velocityValue);
     combineTrajectories.joint_trajectory.points[i].accelerations.push_back(accelValue);
@@ -169,6 +170,12 @@ int main(int argc, char** argv)
       const robot_state::JointModelGroup* joint_model_group = robot_state.getJointModelGroup("chainArm");
       robot_state.setJointGroupPositions(joint_model_group, midResponse.trajectory.joint_trajectory.points.back().positions);
 */
+
+      robot_state::RobotState& robot_state = planning_scene->getCurrentStateNonConst();
+      planning_scene->setCurrentState(midResponse.trajectory_start);
+      const robot_state::JointModelGroup* joint_model_group = robot_state.getJointModelGroup("chainArm");
+      robot_state.setJointGroupPositions(joint_model_group, midResponse.trajectory.joint_trajectory.points.back().positions);
+
       req2.group_name = "chainArmLeft";
       moveit_msgs::Constraints pose_goal_tip_1 = kinematic_constraints::constructGoalConstraints("m1n6a200_link_finger_tip_1", poseTip1, tolerance_pose, tolerance_angle);
       req2.goal_constraints.push_back(pose_goal_tip_1);
@@ -198,37 +205,39 @@ int main(int argc, char** argv)
       //Update the Planning Scene Robot Model to show where the plans ended
       //////////////////////////////////////////////////////////////////////////////////////////////////////
       //Update the whole robot from first plan (main pose)
-      robot_state::RobotState& robot_state = planning_scene->getCurrentStateNonConst();
-      planning_scene->setCurrentState(midResponse.trajectory_start);
-      const robot_state::JointModelGroup* joint_model_group = robot_state.getJointModelGroup("chainArm");
-      robot_state.setJointGroupPositions(joint_model_group, midResponse.trajectory.joint_trajectory.points.back().positions);
+      robot_state = planning_scene->getCurrentStateNonConst();
+      planning_scene->setCurrentState(endResponse.trajectory_start);
+      joint_model_group = robot_state.getJointModelGroup("chainArmLeft");
+      robot_state.setJointGroupPositions(joint_model_group, endResponse.trajectory.joint_trajectory.points.back().positions);
+
 
       //Then update just the finger from the second plan
-      ROS_INFO("the number is : [%f]",endResponse.trajectory.joint_trajectory.points.back().positions.back() );
+      ROS_INFO("the number for finger 1 is : [%f]",endResponse.trajectory.joint_trajectory.points.back().positions.back() );
       const double fingerPosition = endResponse.trajectory.joint_trajectory.points.back().positions.back();
-      const std::string jointFingerName = "m1n6a200_joint_finger_1";
+      //const std::string jointFingerName = "m1n6a200_joint_finger_1";
+      const std::string jointFingerName = endResponse.trajectory.joint_trajectory.joint_names.back();
+      ROS_INFO("the joint name for finger 1 should be this, but is: %s", jointFingerName.c_str());
       const double* fingerPositionPointer= &fingerPosition;
-      robot_state.setJointPositions(jointFingerName, fingerPositionPointer );
+      ROS_INFO("before setting joint postion, finger 1 is : [%f]", *robot_state.getJointPositions(jointFingerName));
+      //robot_state.setJointPositions(jointFingerName, fingerPositionPointer );
+      ROS_INFO("after setting joint postion, finger 1 is : [%f]", *robot_state.getJointPositions(jointFingerName));
+
+      ROS_INFO("PLanner state for finger 1 updated to: [%f]", fingerPosition);
+
 
 
       //////////////////////////////////////////////////////////////////////////////////////////////////////
       //Move the physical robot to the planned coordinates
       //////////////////////////////////////////////////////////////////////////////////////////////////////
-      ROS_INFO("ATTEMPTING TO SEND MOVE COMMANDS...");
+      moveit_msgs::ExecuteTrajectoryGoal goal;
+      goal.trajectory = midResponse.trajectory;
+      //goal.trajectory = combineTrajectories(midResponse.trajectory, endResponse.trajectory);
+
       actionlib::SimpleActionClient<moveit_msgs::ExecuteTrajectoryAction> ac("execute_trajectory",false);
       ROS_INFO("Waiting for action server to start.");
       ac.waitForServer();
 
-      moveit_msgs::ExecuteTrajectoryGoal goal;
-      goal.trajectory = combineTrajectories(midResponse.trajectory, endResponse.trajectory);
-      //waitForPlan_time.sleep();
-
-      actionlib::SimpleClientGoalState waitState = ac.sendGoalAndWait(goal);
-      if (waitState.toString().compare("ABORTED") == 0){
-          ROS_INFO("it aborted, now sleeping for atime");
-          sleep_time.sleep();
-      }
-
+      ac.sendGoal(goal);
       bool finished_before_timeout2 = ac.waitForResult(ros::Duration(30.0));
       if (finished_before_timeout2){
         actionlib::SimpleClientGoalState state = ac.getState();
@@ -238,9 +247,61 @@ int main(int argc, char** argv)
         ROS_INFO("Action did not finish before the time out.");
       }
 
+      moveit_msgs::ExecuteTrajectoryGoal goal2;
+      goal2.trajectory = endResponse.trajectory;
+      //goal.trajectory = combineTrajectories(midResponse.trajectory, endResponse.trajectory);
+
+
+
+      ac.sendGoal(goal2);
+
+
+      /*ROS_INFO("ATTEMPTING TO SEND MOVE COMMANDS...");
+      actionlib::SimpleActionClient<moveit_msgs::ExecuteTrajectoryAction> ac("execute_trajectory",false);
+      ROS_INFO("Waiting for action server to start.");
+      ac.waitForServer();
+
+      moveit_msgs::ExecuteTrajectoryGoal goal;
+      goal.trajectory = midResponse.trajectory;
+      //goal.trajectory = combineTrajectories(midResponse.trajectory, endResponse.trajectory);
+      //waitForPlan_time.sleep();
+
+      actionlib::SimpleClientGoalState waitState = ac.sendGoalAndWait(goal);
+      if (waitState.toString().compare("ABORTED") == 0){
+          ROS_INFO("it aborted, now sleeping for atime");
+          sleep_time.sleep();
+      }
+
+
+
+      robot_state = planning_scene->getCurrentStateNonConst();
+      planning_scene->setCurrentState(endResponse.trajectory_start);
+      joint_model_group = robot_state.getJointModelGroup("chainArm");
+      robot_state.setJointGroupPositions(joint_model_group, endResponse.trajectory.joint_trajectory.points.back().positions);
+
+      moveit_msgs::ExecuteTrajectoryGoal goal2;
+      goal2.trajectory = endResponse.trajectory;
+      //goal.trajectory = combineTrajectories(midResponse.trajectory, endResponse.trajectory);
+      //waitForPlan_time.sleep();
+
+      actionlib::SimpleClientGoalState waitState2 = ac.sendGoalAndWait(goal2);
+      if (waitState2.toString().compare("ABORTED") == 0){
+          ROS_INFO("it aborted, now sleeping for atime");
+          sleep_time.sleep();
+      }
+
+      bool finished_before_timeout22 = ac.waitForResult(ros::Duration(30.0));
+      if (finished_before_timeout22){
+        actionlib::SimpleClientGoalState state2 = ac.getState();
+        ROS_INFO("Action finished: %s",state2.toString().c_str());
+      }
+      else{
+        ROS_INFO("Action did not finish before the time out.");
+      }
+
       duration = ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
       ROS_INFO("It took [%f] seconds to get past the second move", duration);
-
+*/
       //////////////////////////////////////////////////////////////////////////////////////////////////////
       //show the result in Rviz
       //////////////////////////////////////////////////////////////////////////////////////////////////////

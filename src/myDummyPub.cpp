@@ -3,6 +3,8 @@
 #include <geometry_msgs/PoseStamped.h>
 //#include "sensor_msgs/JointState.h"
 #include <cstdlib>
+#include <iostream>
+#include <stdio.h>
 
 void ouch(int sig){
   ROS_INFO("I caught a signal");
@@ -68,6 +70,8 @@ int main(int argc, char **argv)
     //msg.position = [2, 3.59, 7.01, 3.07];
 
     chatter_pub.publish(msg);
+    std::cout << "Press Enter to Continue" ;
+    getchar();
     //ROS_INFO("%s",msg.data.c_str());
     ros::spinOnce();
 
