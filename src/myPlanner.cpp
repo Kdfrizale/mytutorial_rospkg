@@ -53,11 +53,15 @@ moveit_msgs::RobotTrajectory combineTrajectories(const moveit_msgs::RobotTraject
   moveit_msgs::RobotTrajectory combineTrajectories = secondaryTrajectory;
   moveit_msgs::RobotTrajectory otherTrajectory = mainTrajectory;
   int smallestSize = mainTrajectory.joint_trajectory.points.size();
+  int biggestSize = secondaryTrajectory.joint_trajectory.points.size();
+  ROS_INFO(" the size of main is: [%zd]",mainTrajectory.joint_trajectory.points.size());
+  ROS_INFO(" the size of secondary is: [%zd]",secondaryTrajectory.joint_trajectory.points.size());
 
   if (secondaryTrajectory.joint_trajectory.points.size() < mainTrajectory.joint_trajectory.points.size()){
     combineTrajectories = mainTrajectory;
     otherTrajectory = secondaryTrajectory;
     smallestSize = secondaryTrajectory.joint_trajectory.points.size();
+    biggestSize = mainTrajectory.joint_trajectory.points.size();
     combineTrajectories.joint_trajectory.joint_names.push_back("m1n6a200_joint_finger_1");
     ROS_INFO("Switched to secondaryTrajectory being smaller");
   }
@@ -73,11 +77,15 @@ moveit_msgs::RobotTrajectory combineTrajectories(const moveit_msgs::RobotTraject
   //ROS_INFO("There are [%zd] points to go through",mainTrajectory.joint_trajectory.points.size());
 //  ROS_INFO("There are [%zd] points to go through",secondaryTrajectory.joint_trajectory.points.size());
 
+  auto positionValue = otherTrajectory.joint_trajectory.points[0].positions.back();
+  auto  velocityValue = otherTrajectory.joint_trajectory.points[0].velocities.back();
+  auto  accelValue = otherTrajectory.joint_trajectory.points[0].accelerations.back();
+
   for (int i =0; i < smallestSize;i++){
   //  ROS_INFO("IM in a loop for combing...");
-    auto positionValue = otherTrajectory.joint_trajectory.points[i].positions.back();
-    auto  velocityValue = otherTrajectory.joint_trajectory.points[i].velocities.back();
-    auto  accelValue = otherTrajectory.joint_trajectory.points[i].accelerations.back();
+    positionValue = otherTrajectory.joint_trajectory.points[i].positions.back();
+    velocityValue = otherTrajectory.joint_trajectory.points[i].velocities.back();
+    accelValue = otherTrajectory.joint_trajectory.points[i].accelerations.back();
 
     //push back the last value from secondary onto each points last postion,vel,accel //maybe change start form time
     ROS_INFO("value of finger joint posiiton pushed back: [%f]",positionValue);
@@ -93,6 +101,10 @@ moveit_msgs::RobotTrajectory combineTrajectories(const moveit_msgs::RobotTraject
       combineTrajectories.joint_trajectory.points[i].time_from_start = otherTrajectory.joint_trajectory.points[i].time_from_start;
     }
     //ROS_INFO("combines final starttime: [%f]", combineTrajectories.joint_trajectory.points[i].time_from_start.toSec());
+  }
+
+  for( int i = smallestSize; i < biggestSize; i++){
+    combineTrajectories.joint_trajectory.points[i].positions.push_back(positionValue);
   }
   return combineTrajectories;
 }
@@ -249,6 +261,7 @@ int main(int argc, char** argv)
         robot_state.setJointPositions(joint_name, fingerPositionPointer );
         positionInVector++;
       }
+      planning_scene->setCurrentState(robot_state);
 
       //////////////////////////////////////////////////////////////////////////////////////////////////////
       //show the result in Rviz
