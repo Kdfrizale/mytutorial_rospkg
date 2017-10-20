@@ -80,12 +80,14 @@ moveit_msgs::RobotTrajectory combineTrajectories(const moveit_msgs::RobotTraject
   auto positionValue = otherTrajectory.joint_trajectory.points[0].positions.back();
   auto  velocityValue = otherTrajectory.joint_trajectory.points[0].velocities.back();
   auto  accelValue = otherTrajectory.joint_trajectory.points[0].accelerations.back();
+  double timeDifferenceofLast = 0.0;
 
   for (int i =0; i < smallestSize;i++){
   //  ROS_INFO("IM in a loop for combing...");
     positionValue = otherTrajectory.joint_trajectory.points[i].positions.back();
     velocityValue = otherTrajectory.joint_trajectory.points[i].velocities.back();
     accelValue = otherTrajectory.joint_trajectory.points[i].accelerations.back();
+    timeDifferenceofLast = 0.0;//reset every loop to only get the value of the last difference if differnece orrcured
 
     //push back the last value from secondary onto each points last postion,vel,accel //maybe change start form time
     ROS_INFO("value of finger joint posiiton pushed back: [%f]",positionValue);
@@ -93,18 +95,20 @@ moveit_msgs::RobotTrajectory combineTrajectories(const moveit_msgs::RobotTraject
     combineTrajectories.joint_trajectory.points[i].velocities.push_back(velocityValue);
     combineTrajectories.joint_trajectory.points[i].accelerations.push_back(accelValue);
 
-    //ROS_INFO("combines orginal starttime: [%f]", combineTrajectories.joint_trajectory.points[i].time_from_start.toSec());
-    //ROS_INFO("secondary orginal starttime: [%f]", otherTrajectory.joint_trajectory.points[i].time_from_start.toSec());
+    ROS_INFO("combines orginal starttime: [%f]", combineTrajectories.joint_trajectory.points[i].time_from_start.toSec());
+    ROS_INFO("secondary orginal starttime: [%f]", otherTrajectory.joint_trajectory.points[i].time_from_start.toSec());
 
 
     if (combineTrajectories.joint_trajectory.points[i].time_from_start < otherTrajectory.joint_trajectory.points[i].time_from_start){
+      timeDifferenceofLast = otherTrajectory.joint_trajectory.points[i].time_from_start.toSec() - combineTrajectories.joint_trajectory.points[i].time_from_start.toSec();
       combineTrajectories.joint_trajectory.points[i].time_from_start = otherTrajectory.joint_trajectory.points[i].time_from_start;
     }
-    //ROS_INFO("combines final starttime: [%f]", combineTrajectories.joint_trajectory.points[i].time_from_start.toSec());
+    ROS_INFO("combines final starttime: [%f]", combineTrajectories.joint_trajectory.points[i].time_from_start.toSec());
   }
 
   for( int i = smallestSize; i < biggestSize; i++){
     combineTrajectories.joint_trajectory.points[i].positions.push_back(positionValue);
+    combineTrajectories.joint_trajectory.points[i].time_from_start = ros::Duration(timeDifferenceofLast + combineTrajectories.joint_trajectory.points[i].time_from_start.toSec());
   }
   return combineTrajectories;
 }
@@ -148,6 +152,7 @@ int main(int argc, char** argv)
   /* Sleep a little to allow time to startup rviz, etc. */
   ros::WallDuration sleep_time(15.0);
   ros::WallDuration waitForPlan_time(0.5);
+  ros::WallDuration waitForError(2);
   sleep_time.sleep();
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -191,7 +196,7 @@ int main(int argc, char** argv)
 
       if (res.error_code_.val != res.error_code_.SUCCESS){
         ROS_ERROR("Could not compute plan successfully");
-        //sleep_time.sleep();
+        waitForError.sleep();
         continue;//Go back and get new poseTarget
       }
 
@@ -212,7 +217,7 @@ int main(int argc, char** argv)
 
       if (res2.error_code_.val != res2.error_code_.SUCCESS){
         ROS_ERROR("Could not compute plan successfully");
-        //sleep_time.sleep();
+        waitForError.sleep();
         continue;//Go Back and get new Pose Target
       }
 
